@@ -72,18 +72,12 @@ CAPT_FIELDS = [
 ACCEPT_EMBED_TITLE = "✅ Заявка принята, добро пожаловать в семью"
 DENY_EMBED_TITLE = "❌ ЗАЯВКА ОТКЛОНЕНА"
 
-ERROR_GENERIC = "Произошла ошибка. Попробуйте позже."
 ERROR_TICKET_CREATE = "Не удалось создать заявку. Попробуйте позже."
 
 # AFK Система
-AFK_CMD_NAME = "AFK"
-AFK_LIST_CMD = "afk_list"
-AFK_CHECK_CMD = "afk_check"
-AFK_STATS_CMD = "afk_stats"
-
-AFK_EMBED_TITLE = "**🔴 AFK Система**"
+AFK_EMBED_TITLE = "🔴 AFK Система"
 AFK_EMBED_DESCRIPTION = "Используй кнопки ниже для управления статусом AFK"
-AFK_MENU_TITLE = "Во время AFK вам не будут выдавать высказываения по причине НВС"
+AFK_MENU_TITLE = "Во время AFK вам не будут выдавать высказывания по причине НВС"
 AFK_MENU_NO_AFK = "В АФК никого нет."
 AFK_MENU_TOTAL = "Всего в АФК"
 

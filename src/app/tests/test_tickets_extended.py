@@ -4,11 +4,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 
 import config
-from tickets.accept_ticket import AcceptButton, AcceptReasonModal
 from tickets.call_voice import VoiceCallButton, VoiceSelectView
 from tickets.close_ticket import CloseButton
 from tickets.create_ticket import create_ticket
-from tickets.deny_ticket import DenyButton, DenyReasonModal
+from tickets.decision import ACCEPT, DENY, AcceptButton, DecisionReasonModal, DenyButton
 
 
 class TestAcceptButton(unittest.IsolatedAsyncioTestCase):
@@ -30,7 +29,7 @@ class TestAcceptReasonModalSubmit(unittest.IsolatedAsyncioTestCase):
         channel.send = AsyncMock()
         channel.delete = AsyncMock()
 
-        modal = AcceptReasonModal(channel)
+        modal = DecisionReasonModal(channel, ACCEPT)
         modal.reason = MagicMock()
         modal.reason.value = "Хорошая заявка"
 
@@ -50,9 +49,9 @@ class TestAcceptReasonModalSubmit(unittest.IsolatedAsyncioTestCase):
         mock_member.mention = "<@456>"
         guild.get_member = MagicMock(return_value=mock_member)
 
-        with patch("tickets.accept_ticket.get_ticket") as mock_get:
-            with patch("tickets.accept_ticket.update_ticket_status") as mock_update:
-                with patch("tickets.accept_ticket.discord.utils.get", return_value=None):
+        with patch("tickets.decision.get_ticket") as mock_get:
+            with patch("tickets.decision.update_ticket_status") as mock_update:
+                with patch("tickets.decision.discord.utils.get", return_value=None):
                     mock_get.return_value = mock_ticket
                     await modal.on_submit(interaction)
 
@@ -67,7 +66,7 @@ class TestAcceptReasonModalSubmit(unittest.IsolatedAsyncioTestCase):
         channel.send = AsyncMock()
         channel.delete = AsyncMock()
 
-        modal = AcceptReasonModal(channel)
+        modal = DecisionReasonModal(channel, ACCEPT)
         modal.reason = MagicMock()
         modal.reason.value = "Причина"
 
@@ -83,9 +82,9 @@ class TestAcceptReasonModalSubmit(unittest.IsolatedAsyncioTestCase):
         interaction.response = MagicMock()
         interaction.response.send_message = AsyncMock()
 
-        with patch("tickets.accept_ticket.get_ticket") as mock_get:
-            with patch("tickets.accept_ticket.update_ticket_status") as mock_update:
-                with patch("tickets.accept_ticket.discord.utils.get", return_value=None):
+        with patch("tickets.decision.get_ticket") as mock_get:
+            with patch("tickets.decision.update_ticket_status") as mock_update:
+                with patch("tickets.decision.discord.utils.get", return_value=None):
                     mock_get.return_value = None
                     await modal.on_submit(interaction)
 
@@ -112,7 +111,7 @@ class TestDenyReasonModalSubmit(unittest.IsolatedAsyncioTestCase):
         channel.send = AsyncMock()
         channel.delete = AsyncMock()
 
-        modal = DenyReasonModal(channel)
+        modal = DecisionReasonModal(channel, DENY)
         modal.reason = MagicMock()
         modal.reason.value = "Не подходит"
 
@@ -132,9 +131,9 @@ class TestDenyReasonModalSubmit(unittest.IsolatedAsyncioTestCase):
         mock_member.mention = "<@456>"
         guild.get_member = MagicMock(return_value=mock_member)
 
-        with patch("tickets.deny_ticket.get_ticket") as mock_get:
-            with patch("tickets.deny_ticket.update_ticket_status") as mock_update:
-                with patch("tickets.deny_ticket.discord.utils.get", return_value=None):
+        with patch("tickets.decision.get_ticket") as mock_get:
+            with patch("tickets.decision.update_ticket_status") as mock_update:
+                with patch("tickets.decision.discord.utils.get", return_value=None):
                     mock_get.return_value = mock_ticket
                     await modal.on_submit(interaction)
 
@@ -149,7 +148,7 @@ class TestDenyReasonModalSubmit(unittest.IsolatedAsyncioTestCase):
         channel.send = AsyncMock()
         channel.delete = AsyncMock()
 
-        modal = DenyReasonModal(channel)
+        modal = DecisionReasonModal(channel, DENY)
         modal.reason = MagicMock()
         modal.reason.value = "Причина"
 
@@ -165,9 +164,9 @@ class TestDenyReasonModalSubmit(unittest.IsolatedAsyncioTestCase):
         interaction.response = MagicMock()
         interaction.response.send_message = AsyncMock()
 
-        with patch("tickets.deny_ticket.get_ticket") as mock_get:
-            with patch("tickets.deny_ticket.update_ticket_status") as mock_update:
-                with patch("tickets.deny_ticket.discord.utils.get", return_value=None):
+        with patch("tickets.decision.get_ticket") as mock_get:
+            with patch("tickets.decision.update_ticket_status") as mock_update:
+                with patch("tickets.decision.discord.utils.get", return_value=None):
                     mock_get.return_value = None
                     await modal.on_submit(interaction)
 

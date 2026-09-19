@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Any
 
 import discord
 
+import config
 from database.afk_db import (
     check_cooldown as db_check_cooldown,
     get_afk_user as db_get_afk_user,
@@ -16,13 +16,29 @@ from database.afk_db import (
 )
 
 
-def set_afk(user_id: int, guild_id: int, reason: str, estimated_return: str | None = None) -> None:
+def format_duration(seconds):
+    minutes, sec = divmod(max(int(seconds), 0), 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    parts = []
+    if days:
+        parts.append(f"{days} дн")
+    if hours:
+        parts.append(f"{hours} ч")
+    if minutes:
+        parts.append(f"{minutes} мин")
+    if sec or not parts:
+        parts.append(f"{sec} сек")
+    return " ".join(parts)
+
+
+def set_afk(user_id, guild_id, reason, estimated_return=None):
     now = datetime.now().isoformat()
     db_set_afk(user_id, guild_id, reason, now, estimated_return)
     update_stats_on_set(user_id)
 
 
-def remove_afk(user_id: int, guild_id: int) -> int | None:
+def remove_afk(user_id, guild_id):
     row = db_get_afk_user(user_id, guild_id)
     if not row:
         return None
@@ -33,36 +49,31 @@ def remove_afk(user_id: int, guild_id: int) -> int | None:
     return duration
 
 
-def get_afk_user(user_id: int, guild_id: int) -> dict[str, Any] | None:
+def get_afk_user(user_id, guild_id):
     row = db_get_afk_user(user_id, guild_id)
-    if not row:
-        return None
-    return dict(row)
+    return dict(row) if row else None
 
 
-def get_all_afk(guild_id: int) -> list[dict[str, Any]]:
-    rows = db_get_all_afk(guild_id)
-    return [dict(row) for row in rows]
+def get_all_afk(guild_id):
+    return [dict(row) for row in db_get_all_afk(guild_id)]
 
 
-def check_and_reply(mentioner_id: int, afk_user_id: int) -> bool:
-    if db_check_cooldown(mentioner_id, afk_user_id, 30):
+def check_and_reply(mentioner_id, afk_user_id):
+    if db_check_cooldown(mentioner_id, afk_user_id, config.AFK_COOLDOWN_SECONDS):
         db_set_cooldown(mentioner_id, afk_user_id)
         return True
     return False
 
 
-def get_user_stats(user_id: int) -> dict[str, Any] | None:
+def get_user_stats(user_id):
     row = db_get_user_stats(user_id)
-    if not row:
-        return None
-    return dict(row)
+    return dict(row) if row else None
 
 
-async def add_afk_nickname(member: discord.Member) -> bool:
-    if member.nick and "[AFK]" in member.nick:
+async def add_afk_nickname(member):
+    if member.nick and config.AFK_NICK_PREFIX in member.nick:
         return True
-    new_nick = f"[AFK] {member.display_name}"[:32]
+    new_nick = f"{config.AFK_NICK_PREFIX}{member.display_name}"[:32]
     try:
         await member.edit(nick=new_nick)
         return True
@@ -70,10 +81,10 @@ async def add_afk_nickname(member: discord.Member) -> bool:
         return False
 
 
-async def remove_afk_nickname(member: discord.Member) -> bool:
-    if not member.nick or "[AFK]" not in member.nick:
+async def remove_afk_nickname(member):
+    if not member.nick or config.AFK_NICK_PREFIX not in member.nick:
         return True
-    new_nick = member.nick.replace("[AFK] ", "", 1).replace("[AFK]", "", 1)[:32]
+    new_nick = member.nick.replace(config.AFK_NICK_PREFIX, "", 1)[:32]
     try:
         await member.edit(nick=new_nick or None)
         return True

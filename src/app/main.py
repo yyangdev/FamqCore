@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 import config
-from database.tickets_db import init_db
+from database import init_afk_db, init_db
 from utils.logger import logger
 
 
@@ -31,6 +31,7 @@ bot = commands.Bot(command_prefix=config.CMD_PREFIX, intents=intents)
 @bot.event
 async def on_ready():
     init_db()
+    init_afk_db()
     await bot.load_extension("tickets")
     await bot.load_extension("afk")
     logger.info(f"Бот {bot.user} запущен")
@@ -38,7 +39,7 @@ async def on_ready():
 
 if __name__ == "__main__":
     if not run_tests():
-        print("\n❌ Test no passed")
+        print("\n❌ Tests failed")
         sys.exit(1)
     print("\n✅ All tests passed\n")
     bot.run(config.TOKEN)

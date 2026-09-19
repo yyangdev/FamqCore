@@ -34,7 +34,7 @@ def parse_return_time(text: str):
     return None
 
 
-async def build_afk_embed(guild: discord.Guild):
+def build_afk_embed(guild: discord.Guild):
     from .models import get_all_afk
 
     rows = get_all_afk(guild.id)
@@ -162,7 +162,7 @@ class AfkMenuView(discord.ui.View):
 
     @discord.ui.button(label=config.AFK_BUTTON_RETURN, style=discord.ButtonStyle.success)
     async def return_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        from .models import get_afk_user
+        from .models import format_duration, get_afk_user
 
         row = get_afk_user(interaction.user.id, interaction.guild_id)
         if not row:
@@ -170,10 +170,8 @@ class AfkMenuView(discord.ui.View):
             return
 
         afk_since = datetime.fromisoformat(row["afk_since"])
-        duration = datetime.now() - afk_since
-        hours, remainder = divmod(int(duration.total_seconds()), 3600)
-        minutes, _ = divmod(remainder, 60)
-        duration_text = f"{hours} часов {minutes} минут" if hours else f"{minutes} минут"
+        duration = int((datetime.now() - afk_since).total_seconds())
+        duration_text = format_duration(duration)
 
         embed = discord.Embed(
             title=config.AFK_RETURN_MODAL_TITLE,
@@ -185,5 +183,5 @@ class AfkMenuView(discord.ui.View):
 
     @discord.ui.button(label=config.AFK_BUTTON_REFRESH, style=discord.ButtonStyle.primary)
     async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = await build_afk_embed(interaction.guild)
+        embed = build_afk_embed(interaction.guild)
         await interaction.response.send_message(embed=embed, ephemeral=True)

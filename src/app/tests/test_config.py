@@ -77,24 +77,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(len(config.CAPT_FIELDS), 5)
 
     def test_error_messages(self):
-        self.assertIsInstance(config.ERROR_GENERIC, str)
         self.assertIsInstance(config.ERROR_TICKET_CREATE, str)
-
-    def test_afk_cmd_name(self):
-        self.assertIsInstance(config.AFK_CMD_NAME, str)
-        self.assertTrue(len(config.AFK_CMD_NAME) > 0)
-
-    def test_afk_list_cmd(self):
-        self.assertIsInstance(config.AFK_LIST_CMD, str)
-        self.assertTrue(len(config.AFK_LIST_CMD) > 0)
-
-    def test_afk_check_cmd(self):
-        self.assertIsInstance(config.AFK_CHECK_CMD, str)
-        self.assertTrue(len(config.AFK_CHECK_CMD) > 0)
-
-    def test_afk_stats_cmd(self):
-        self.assertIsInstance(config.AFK_STATS_CMD, str)
-        self.assertTrue(len(config.AFK_STATS_CMD) > 0)
 
     def test_afk_embed_title(self):
         self.assertIsInstance(config.AFK_EMBED_TITLE, str)
