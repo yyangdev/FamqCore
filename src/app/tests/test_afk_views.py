@@ -67,19 +67,19 @@ class TestParseReturnTime(unittest.TestCase):
         self.assertIsNotNone(result)
 
 
-class TestBuildAfkEmbed(unittest.IsolatedAsyncioTestCase):
-    async def test_empty_afk_list(self):
+class TestBuildAfkEmbed(unittest.TestCase):
+    def test_empty_afk_list(self):
         guild = MagicMock()
         guild.id = 123
 
         with patch("afk.models.get_all_afk") as mock_get:
             mock_get.return_value = []
-            embed = await build_afk_embed(guild)
+            embed = build_afk_embed(guild)
 
         self.assertIsInstance(embed, discord.Embed)
         self.assertEqual(embed.fields[0].value, "0 человек")
 
-    async def test_with_afk_users(self):
+    def test_with_afk_users(self):
         guild = MagicMock()
         guild.id = 123
         guild.get_member = MagicMock(return_value=None)
@@ -95,13 +95,13 @@ class TestBuildAfkEmbed(unittest.IsolatedAsyncioTestCase):
 
         with patch("afk.models.get_all_afk") as mock_get:
             mock_get.return_value = mock_rows
-            embed = await build_afk_embed(guild)
+            embed = build_afk_embed(guild)
 
         self.assertIsInstance(embed, discord.Embed)
         self.assertEqual(embed.fields[0].value, "1 человек")
         self.assertIsNotNone(embed.description)
 
-    async def test_with_estimated_return(self):
+    def test_with_estimated_return(self):
         guild = MagicMock()
         guild.id = 123
         guild.get_member = MagicMock(return_value=None)
@@ -117,11 +117,11 @@ class TestBuildAfkEmbed(unittest.IsolatedAsyncioTestCase):
 
         with patch("afk.models.get_all_afk") as mock_get:
             mock_get.return_value = mock_rows
-            embed = await build_afk_embed(guild)
+            embed = build_afk_embed(guild)
 
         self.assertIn("12:00", embed.description)
 
-    async def test_with_member_object(self):
+    def test_with_member_object(self):
         guild = MagicMock()
         guild.id = 123
         member = MagicMock()
@@ -139,7 +139,7 @@ class TestBuildAfkEmbed(unittest.IsolatedAsyncioTestCase):
 
         with patch("afk.models.get_all_afk") as mock_get:
             mock_get.return_value = mock_rows
-            embed = await build_afk_embed(guild)
+            embed = build_afk_embed(guild)
 
         self.assertIn("<@111>", embed.description)
 

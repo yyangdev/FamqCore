@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 
-from afk.commands import AfkCog, format_duration
+from afk.commands import AfkCog
+from afk.models import format_duration
 
 
 class TestFormatDuration(unittest.TestCase):
@@ -34,7 +35,7 @@ class TestFormatDuration(unittest.TestCase):
 
     def test_large_duration(self):
         result = format_duration(90061)
-        self.assertEqual(result, "25 ч 1 мин 1 сек")
+        self.assertEqual(result, "1 дн 1 ч 1 мин 1 сек")
 
 
 class TestAfkCog(unittest.TestCase):
@@ -97,7 +98,7 @@ class TestAfkListCommand(unittest.TestCase):
         ctx.guild = MagicMock()
         ctx.guild.id = 123
 
-        with patch("afk.commands.get_all_afk") as mock_get:
+        with patch("afk.models.get_all_afk") as mock_get:
             mock_get.return_value = []
             self.loop.run_until_complete(self.cog.afk_list_command.callback(self.cog, ctx))
 
@@ -122,14 +123,15 @@ class TestAfkListCommand(unittest.TestCase):
             },
         ]
 
-        with patch("afk.commands.get_all_afk") as mock_get:
+        with patch("afk.models.get_all_afk") as mock_get:
             mock_get.return_value = mock_rows
             self.loop.run_until_complete(self.cog.afk_list_command.callback(self.cog, ctx))
 
         ctx.send.assert_called_once()
         call_args = ctx.send.call_args
         embed = call_args.kwargs.get("embed") or call_args.args[0]
-        self.assertIn("ЛЮДИ", embed.title.upper())
+        self.assertEqual(embed.fields[0].value, "1 человек")
+        self.assertIn("<@111>", embed.description)
 
 
 class TestAfkCheckCommand(unittest.TestCase):

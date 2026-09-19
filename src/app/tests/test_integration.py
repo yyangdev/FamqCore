@@ -110,7 +110,7 @@ class TestIntegrationAfkFlow(unittest.IsolatedAsyncioTestCase):
         ctx.guild = MagicMock()
         ctx.guild.id = 123
 
-        with patch("afk.commands.get_all_afk") as mock_get:
+        with patch("afk.models.get_all_afk") as mock_get:
             mock_get.return_value = []
             await cog.afk_list_command.callback(cog, ctx)
 
@@ -172,7 +172,7 @@ class TestIntegrationBotLifecycle(unittest.IsolatedAsyncioTestCase):
         bot.load_extension = AsyncMock()
         main_module.bot = bot
 
-        with patch("main.init_db") as mock_init:
+        with patch("main.init_db") as mock_init, patch("main.init_afk_db"):
             with patch("main.logger"):
                 await main_module.on_ready()
 

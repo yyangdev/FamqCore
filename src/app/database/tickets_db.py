@@ -7,36 +7,6 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     c.execute("""
-        CREATE TABLE IF NOT EXISTS afk_users (
-            user_id INTEGER NOT NULL,
-            guild_id INTEGER NOT NULL,
-            afk_reason TEXT DEFAULT 'Отошёл',
-            afk_since TEXT NOT NULL,
-            estimated_return TEXT,
-            is_afk INTEGER DEFAULT 1,
-            PRIMARY KEY (user_id, guild_id)
-        )
-    """)
-    c.execute("""
-        CREATE INDEX IF NOT EXISTS idx_afk_users_guild ON afk_users(guild_id)
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS afk_cooldown (
-            mentioner_id INTEGER NOT NULL,
-            afk_user_id INTEGER NOT NULL,
-            last_reply TEXT NOT NULL,
-            PRIMARY KEY (mentioner_id, afk_user_id)
-        )
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS afk_stats (
-            user_id INTEGER PRIMARY KEY,
-            total_afk_count INTEGER DEFAULT 0,
-            total_afk_seconds INTEGER DEFAULT 0,
-            longest_afk_seconds INTEGER DEFAULT 0
-        )
-    """)
-    c.execute("""
         CREATE TABLE IF NOT EXISTS tickets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             channel_id INTEGER UNIQUE,

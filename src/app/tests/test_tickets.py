@@ -5,11 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 
 import config
-from tickets.accept_ticket import AcceptButton, AcceptReasonModal
 from tickets.call_voice import VoiceCallButton, VoiceSelectView
 from tickets.close_ticket import CloseButton
 from tickets.create_ticket import TicketModal, create_ticket
-from tickets.deny_ticket import DenyButton, DenyReasonModal
+from tickets.decision import ACCEPT, DENY, AcceptButton, DecisionReasonModal, DenyButton
 from tickets.views import FullTicketView
 
 
@@ -121,15 +120,13 @@ class TestViews(unittest.TestCase):
 
 class TestModals(unittest.TestCase):
     def test_accept_reason_modal(self):
-        channel = MagicMock()
-        modal = AcceptReasonModal(channel)
+        modal = DecisionReasonModal(MagicMock(), ACCEPT)
         self.assertEqual(modal.title, "Принятие заявки")
         self.assertEqual(len(modal.children), 1)
         self.assertEqual(modal.children[0].label, "Причина принятия")
 
     def test_deny_reason_modal(self):
-        channel = MagicMock()
-        modal = DenyReasonModal(channel)
+        modal = DecisionReasonModal(MagicMock(), DENY)
         self.assertEqual(modal.title, "Отклонение заявки")
         self.assertEqual(len(modal.children), 1)
         self.assertEqual(modal.children[0].label, "Причина отказа")

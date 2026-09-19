@@ -26,18 +26,19 @@ class TestOnReady(unittest.IsolatedAsyncioTestCase):
         bot = MagicMock()
         bot.user = "TestBot#1234"
 
-        with patch("main.init_db") as mock_init:
+        with patch("main.init_db") as mock_init, patch("main.init_afk_db") as mock_afk_init:
             with patch("main.logger"):
                 await main_module.on_ready()
 
         mock_init.assert_called_once()
+        mock_afk_init.assert_called_once()
 
     async def test_on_ready_loads_extensions(self):
         bot = MagicMock()
         bot.user = "TestBot#1234"
         bot.load_extension = AsyncMock()
 
-        with patch("main.init_db"):
+        with patch("main.init_db"), patch("main.init_afk_db"):
             with patch("main.logger"):
                 main_module.bot = bot
                 await main_module.on_ready()
@@ -78,7 +79,7 @@ class TestMainBlock(unittest.TestCase):
     def test_main_tests_fail(self, mock_print, mock_exit, mock_run_tests):
         mock_run_tests.return_value = False
         if not main_module.run_tests():
-            mock_print("\n❌ Test no passed")
+            mock_print("\n❌ Tests failed")
             mock_exit(1)
         mock_exit.assert_called_once_with(1)
 
