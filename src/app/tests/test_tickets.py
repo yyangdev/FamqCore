@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 
 import config
-from tickets.create_ticket import TicketModal, create_ticket
-from tickets.views import FullTicketView
 from tickets.accept_ticket import AcceptButton, AcceptReasonModal
-from tickets.deny_ticket import DenyButton, DenyReasonModal
 from tickets.call_voice import VoiceCallButton, VoiceSelectView
 from tickets.close_ticket import CloseButton
+from tickets.create_ticket import TicketModal, create_ticket
+from tickets.deny_ticket import DenyButton, DenyReasonModal
+from tickets.views import FullTicketView
 
 
 class TestTicketModal(unittest.TestCase):
@@ -73,9 +73,7 @@ class TestCreateTicket(unittest.TestCase):
 
         with patch("tickets.create_ticket.save_ticket") as mock_save:
             with patch("tickets.create_ticket.FullTicketView", return_value=MagicMock()):
-                self.loop.run_until_complete(
-                    create_ticket(interaction, "RP ЗАЯВКА", "rp", inputs)
-                )
+                self.loop.run_until_complete(create_ticket(interaction, "RP ЗАЯВКА", "rp", inputs))
 
         interaction.response.send_message.assert_called_once()
         interaction.guild.create_text_channel.assert_called_once()

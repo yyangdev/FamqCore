@@ -1,15 +1,14 @@
-﻿from datetime import datetime
-from typing import Optional
+from datetime import datetime
 
 import discord
 from discord.ext import commands
-import config
 
-from .views import AfkMenuView, AfkSetModal
 from .models import (
-    set_afk, remove_afk, get_afk_user, get_all_afk,
-    get_user_stats, add_afk_nickname, remove_afk_nickname
+    get_afk_user,
+    get_all_afk,
+    get_user_stats,
 )
+from .views import AfkMenuView
 
 
 def format_duration(seconds: int) -> str:
@@ -70,7 +69,9 @@ class AfkCog(commands.Cog):
                     return_str = ret.strftime("%H:%M")
                 except Exception:
                     return_str = str(row["estimated_return"])[:20]
-            lines.append(f"{idx}) {name} | Причина: {reason}    Ушел: {since_str} | Вернется: {return_str}")
+            lines.append(
+                f"{idx}) {name} | Причина: {reason}    Ушел: {since_str} | Вернется: {return_str}"
+            )
 
         embed.description = "\n".join(lines)
         await ctx.send(embed=embed)
@@ -136,8 +137,12 @@ class AfkCog(commands.Cog):
             color=discord.Color.blue(),
         )
         embed.add_field(name="Всего уходов в AFK", value=stats["total_afk_count"], inline=True)
-        embed.add_field(name="Общее время в AFK", value=fmt_secs(stats["total_afk_seconds"]), inline=True)
-        embed.add_field(name="Самая долгая сессия", value=fmt_secs(stats["longest_afk_seconds"]), inline=False)
+        embed.add_field(
+            name="Общее время в AFK", value=fmt_secs(stats["total_afk_seconds"]), inline=True
+        )
+        embed.add_field(
+            name="Самая долгая сессия", value=fmt_secs(stats["longest_afk_seconds"]), inline=False
+        )
 
         await ctx.send(embed=embed)
 

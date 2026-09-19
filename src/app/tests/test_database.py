@@ -1,7 +1,7 @@
+import importlib
 import os
 import tempfile
 import unittest
-import importlib
 
 import config
 import database.db as db_module
@@ -84,7 +84,7 @@ class TestDatabase(unittest.TestCase):
 
     def test_get_all_tickets_limit(self):
         for i in range(10):
-            self.db.save_ticket(i, i, f"user{i}", "T", "rp", "{}", f"2024-01-{i+1:02d}T00:00:00")
+            self.db.save_ticket(i, i, f"user{i}", "T", "rp", "{}", f"2024-01-{i + 1:02d}T00:00:00")
         results = self.db.get_all_tickets(limit=5)
         self.assertEqual(len(results), 5)
 

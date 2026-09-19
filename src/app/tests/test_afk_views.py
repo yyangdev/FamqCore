@@ -1,14 +1,10 @@
-import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 
 import config
-from afk.views import (
-    parse_return_time, build_afk_embed, AfkMenuView,
-    AfkReturnView, AfkSetModal
-)
+from afk.views import AfkMenuView, AfkReturnView, AfkSetModal, build_afk_embed, parse_return_time
 
 
 class TestParseReturnTime(unittest.TestCase):
@@ -53,6 +49,7 @@ class TestParseReturnTime(unittest.TestCase):
 
     def test_past_time_returns_tomorrow(self):
         from datetime import datetime
+
         now = datetime.now()
         past_hour = (now.hour - 1) % 24
         past_time = f"{past_hour:02d}:00"
@@ -62,6 +59,7 @@ class TestParseReturnTime(unittest.TestCase):
 
     def test_future_time_returns_today(self):
         from datetime import datetime
+
         now = datetime.now()
         future_hour = (now.hour + 1) % 24
         future_time = f"{future_hour:02d}:00"
@@ -87,7 +85,12 @@ class TestBuildAfkEmbed(unittest.IsolatedAsyncioTestCase):
         guild.get_member = MagicMock(return_value=None)
 
         mock_rows = [
-            {"user_id": 111, "afk_reason": "test", "afk_since": "2024-01-01T10:00:00", "estimated_return": None},
+            {
+                "user_id": 111,
+                "afk_reason": "test",
+                "afk_since": "2024-01-01T10:00:00",
+                "estimated_return": None,
+            },
         ]
 
         with patch("afk.models.get_all_afk") as mock_get:
@@ -104,7 +107,12 @@ class TestBuildAfkEmbed(unittest.IsolatedAsyncioTestCase):
         guild.get_member = MagicMock(return_value=None)
 
         mock_rows = [
-            {"user_id": 111, "afk_reason": "test", "afk_since": "2024-01-01T10:00:00", "estimated_return": "2024-01-01T12:00:00"},
+            {
+                "user_id": 111,
+                "afk_reason": "test",
+                "afk_since": "2024-01-01T10:00:00",
+                "estimated_return": "2024-01-01T12:00:00",
+            },
         ]
 
         with patch("afk.models.get_all_afk") as mock_get:
@@ -121,7 +129,12 @@ class TestBuildAfkEmbed(unittest.IsolatedAsyncioTestCase):
         guild.get_member = MagicMock(return_value=member)
 
         mock_rows = [
-            {"user_id": 111, "afk_reason": "test", "afk_since": "2024-01-01T10:00:00", "estimated_return": None},
+            {
+                "user_id": 111,
+                "afk_reason": "test",
+                "afk_since": "2024-01-01T10:00:00",
+                "estimated_return": None,
+            },
         ]
 
         with patch("afk.models.get_all_afk") as mock_get:
@@ -275,7 +288,7 @@ class TestAfkReturnViewButtons(unittest.IsolatedAsyncioTestCase):
         interaction.response.edit_message = AsyncMock()
 
         with patch("afk.models.remove_afk") as mock_remove:
-            with patch("afk.models.remove_afk_nickname") as mock_nick:
+            with patch("afk.models.remove_afk_nickname"):
                 mock_remove.return_value = 3600
                 await view.confirm.callback(interaction)
 
@@ -383,7 +396,7 @@ class TestAfkSetModalSubmit(unittest.IsolatedAsyncioTestCase):
         interaction.response.send_message = AsyncMock()
 
         with patch("afk.models.set_afk") as mock_set:
-            with patch("afk.models.add_afk_nickname") as mock_nick:
+            with patch("afk.models.add_afk_nickname"):
                 await modal.on_submit(interaction)
 
         interaction.response.send_message.assert_called_once()
@@ -404,7 +417,7 @@ class TestAfkSetModalSubmit(unittest.IsolatedAsyncioTestCase):
         interaction.response.send_message = AsyncMock()
 
         with patch("afk.models.set_afk") as mock_set:
-            with patch("afk.models.add_afk_nickname") as mock_nick:
+            with patch("afk.models.add_afk_nickname"):
                 await modal.on_submit(interaction)
 
         call_args = mock_set.call_args

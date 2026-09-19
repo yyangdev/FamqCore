@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 
 import config
-from tickets.commands import TicketTypeView, TicketsCog
+from tickets.commands import TicketsCog, TicketTypeView
 
 
 class TestTicketTypeView(unittest.TestCase):

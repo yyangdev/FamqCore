@@ -1,11 +1,13 @@
-import discord
-from datetime import datetime
 import json
+from datetime import datetime
+
+import discord
 
 import config
 from database.tickets_db import save_ticket
-from .views import FullTicketView
 from utils.logger import logger
+
+from .views import FullTicketView
 
 
 class TicketModal(discord.ui.Modal):
@@ -76,9 +78,13 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
         ]:
             role = discord.utils.get(guild.roles, name=role_name)
             if role:
-                overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+                overwrites[role] = discord.PermissionOverwrite(
+                    read_messages=True, send_messages=True
+                )
 
-        channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
+        channel = await guild.create_text_channel(
+            channel_name, category=category, overwrites=overwrites
+        )
 
         save_ticket(
             channel.id,

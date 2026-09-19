@@ -2,15 +2,15 @@
 Интеграционные тесты end-to-end для Regent FamQ Bot.
 Проверяют полный цикл от команды до ответа бота.
 """
-import asyncio
+
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 
 import config
-from tickets.commands import TicketsCog, TicketTypeView
 from afk.commands import AfkCog
+from tickets.commands import TicketsCog, TicketTypeView
 
 
 class TestIntegrationTicketsFlow(unittest.IsolatedAsyncioTestCase):
@@ -173,7 +173,7 @@ class TestIntegrationBotLifecycle(unittest.IsolatedAsyncioTestCase):
         main_module.bot = bot
 
         with patch("main.init_db") as mock_init:
-            with patch("main.logger") as mock_logger:
+            with patch("main.logger"):
                 await main_module.on_ready()
 
         mock_init.assert_called_once()

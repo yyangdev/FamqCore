@@ -1,28 +1,28 @@
-﻿from datetime import datetime
-from typing import Optional, List, Dict, Any
+from datetime import datetime
+from typing import Any
 
 import discord
 
 from database.afk_db import (
-    set_afk as db_set_afk,
-    remove_afk as db_remove_afk,
+    check_cooldown as db_check_cooldown,
     get_afk_user as db_get_afk_user,
     get_all_afk as db_get_all_afk,
-    check_cooldown as db_check_cooldown,
-    set_cooldown as db_set_cooldown,
     get_user_stats as db_get_user_stats,
-    update_stats_on_set,
+    remove_afk as db_remove_afk,
+    set_afk as db_set_afk,
+    set_cooldown as db_set_cooldown,
     update_stats_on_remove,
+    update_stats_on_set,
 )
 
 
-def set_afk(user_id: int, guild_id: int, reason: str, estimated_return: Optional[str] = None) -> None:
+def set_afk(user_id: int, guild_id: int, reason: str, estimated_return: str | None = None) -> None:
     now = datetime.now().isoformat()
     db_set_afk(user_id, guild_id, reason, now, estimated_return)
     update_stats_on_set(user_id)
 
 
-def remove_afk(user_id: int, guild_id: int) -> Optional[int]:
+def remove_afk(user_id: int, guild_id: int) -> int | None:
     row = db_get_afk_user(user_id, guild_id)
     if not row:
         return None
@@ -33,14 +33,14 @@ def remove_afk(user_id: int, guild_id: int) -> Optional[int]:
     return duration
 
 
-def get_afk_user(user_id: int, guild_id: int) -> Optional[Dict[str, Any]]:
+def get_afk_user(user_id: int, guild_id: int) -> dict[str, Any] | None:
     row = db_get_afk_user(user_id, guild_id)
     if not row:
         return None
     return dict(row)
 
 
-def get_all_afk(guild_id: int) -> List[Dict[str, Any]]:
+def get_all_afk(guild_id: int) -> list[dict[str, Any]]:
     rows = db_get_all_afk(guild_id)
     return [dict(row) for row in rows]
 
@@ -52,7 +52,7 @@ def check_and_reply(mentioner_id: int, afk_user_id: int) -> bool:
     return False
 
 
-def get_user_stats(user_id: int) -> Optional[Dict[str, Any]]:
+def get_user_stats(user_id: int) -> dict[str, Any] | None:
     row = db_get_user_stats(user_id)
     if not row:
         return None

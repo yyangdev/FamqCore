@@ -1,8 +1,5 @@
-import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
-
-import discord
 
 import config
 from tickets.commands import TicketTypeView

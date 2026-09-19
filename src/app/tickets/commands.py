@@ -2,34 +2,42 @@ import discord
 from discord.ext import commands
 
 import config
+from database.tickets_db import get_all_tickets, get_stats
+
 from .create_ticket import TicketModal
-from database.tickets_db import get_stats, get_all_tickets
-from utils.logger import logger
 
 
 class TicketTypeView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        
-        rp = discord.ui.Button(label=config.TICKET_RP_TITLE, style=discord.ButtonStyle.success, custom_id="rp")
+
+        rp = discord.ui.Button(
+            label=config.TICKET_RP_TITLE, style=discord.ButtonStyle.success, custom_id="rp"
+        )
         rp.callback = self.rp_callback
         self.add_item(rp)
 
-        capt = discord.ui.Button(label=config.TICKET_CAPT_TITLE, style=discord.ButtonStyle.primary, custom_id="capt")
+        capt = discord.ui.Button(
+            label=config.TICKET_CAPT_TITLE, style=discord.ButtonStyle.primary, custom_id="capt"
+        )
         capt.callback = self.capt_callback
         self.add_item(capt)
 
     async def rp_callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(TicketModal(config.TICKET_RP_TITLE, "rp", config.RP_FIELDS))
+        await interaction.response.send_modal(
+            TicketModal(config.TICKET_RP_TITLE, "rp", config.RP_FIELDS)
+        )
 
     async def capt_callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(TicketModal(config.TICKET_CAPT_TITLE, "capt", config.CAPT_FIELDS))
+        await interaction.response.send_modal(
+            TicketModal(config.TICKET_CAPT_TITLE, "capt", config.CAPT_FIELDS)
+        )
 
 
 class TicketsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-    
+
     @commands.command(name=config.CMD_REGENT)
     async def regent_apply(self, ctx):
         embed = discord.Embed(
@@ -57,7 +65,7 @@ class TicketsCog(commands.Cog):
         if not tickets:
             await ctx.send("Нет заявок в истории")
             return
-        
+
         embed = discord.Embed(title="История заявок", color=discord.Color.blue())
         for t in tickets:
             emoji = "✅" if t["status"] == "accepted" else "❌" if t["status"] == "denied" else "🟡"
