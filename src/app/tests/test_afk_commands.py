@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 
-import config
 from afk.commands import AfkCog, format_duration
 
 
@@ -115,7 +114,12 @@ class TestAfkListCommand(unittest.TestCase):
         ctx.guild.get_member = MagicMock(return_value=None)
 
         mock_rows = [
-            {"user_id": 111, "afk_reason": "test", "afk_since": "2024-01-01T10:00:00", "estimated_return": None},
+            {
+                "user_id": 111,
+                "afk_reason": "test",
+                "afk_since": "2024-01-01T10:00:00",
+                "estimated_return": None,
+            },
         ]
 
         with patch("afk.commands.get_all_afk") as mock_get:

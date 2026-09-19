@@ -1,8 +1,9 @@
 import discord
+
 from .accept_ticket import AcceptButton
-from .deny_ticket import DenyButton
 from .call_voice import VoiceCallButton
 from .close_ticket import CloseButton
+from .deny_ticket import DenyButton
 
 
 class FullTicketView(discord.ui.View):

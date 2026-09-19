@@ -1,7 +1,8 @@
-﻿import re
+import re
 from datetime import datetime, timedelta
 
 import discord
+
 import config
 
 
@@ -35,6 +36,7 @@ def parse_return_time(text: str):
 
 async def build_afk_embed(guild: discord.Guild):
     from .models import get_all_afk
+
     rows = get_all_afk(guild.id)
 
     embed = discord.Embed(
@@ -57,7 +59,9 @@ async def build_afk_embed(guild: discord.Guild):
                 return_str = ret.strftime("%H:%M")
             except Exception:
                 return_str = str(row["estimated_return"])[:20]
-        lines.append(f"{idx}) {name} | Причина: {reason}    Ушел: {since_str} | Вернется: {return_str}")
+        lines.append(
+            f"{idx}) {name} | Причина: {reason}    Ушел: {since_str} | Вернется: {return_str}"
+        )
 
     if lines:
         embed.description = "\n".join(lines)
@@ -81,6 +85,7 @@ class AfkReturnView(discord.ui.View):
             return
 
         from .models import remove_afk, remove_afk_nickname
+
         duration = remove_afk(self.member.id, self.guild_id)
         if duration is None:
             await interaction.response.send_message(config.AFK_RETURN_ERROR, ephemeral=True)
@@ -99,7 +104,9 @@ class AfkReturnView(discord.ui.View):
         if interaction.user.id != self.member.id:
             await interaction.response.send_message(config.AFK_INVALID_USER, ephemeral=True)
             return
-        await interaction.response.edit_message(content=config.AFK_RETURN_STAY, embed=None, view=None)
+        await interaction.response.edit_message(
+            content=config.AFK_RETURN_STAY, embed=None, view=None
+        )
         self.stop()
 
 
@@ -124,7 +131,8 @@ class AfkSetModal(discord.ui.Modal, title=config.AFK_MODAL_TITLE):
         self.guild = guild
 
     async def on_submit(self, interaction: discord.Interaction):
-        from .models import set_afk, add_afk_nickname
+        from .models import add_afk_nickname, set_afk
+
         reason = self.reason.value or config.AFK_REASON_DEFAULT
         parsed = parse_return_time(self.duration.value)
         if parsed is None:
@@ -155,6 +163,7 @@ class AfkMenuView(discord.ui.View):
     @discord.ui.button(label=config.AFK_BUTTON_RETURN, style=discord.ButtonStyle.success)
     async def return_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         from .models import get_afk_user
+
         row = get_afk_user(interaction.user.id, interaction.guild_id)
         if not row:
             await interaction.response.send_message(config.AFK_NOT_AFK, ephemeral=True)

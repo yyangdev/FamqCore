@@ -32,7 +32,7 @@ def setup_logger(name: str) -> logging.Logger:
 
     if logger.handlers:
         logger.handlers.clear()
-    
+
     file_fmt = logging.Formatter(
         "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",

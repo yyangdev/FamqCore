@@ -2,8 +2,6 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import discord
-
 from afk.events import setup_afk_events
 
 
@@ -249,8 +247,8 @@ class TestOnVoiceStateUpdate(unittest.TestCase):
         after.channel = MagicMock()
 
         with patch("afk.events.get_afk_user") as mock_get:
-            with patch("afk.events.remove_afk") as mock_remove:
-                with patch("afk.events.remove_afk_nickname") as mock_nick:
+            with patch("afk.events.remove_afk"):
+                with patch("afk.events.remove_afk_nickname"):
                     mock_get.return_value = {"afk_since": "2024-01-01T10:00:00"}
                     self.loop.run_until_complete(self.on_voice(member, before, after))
 

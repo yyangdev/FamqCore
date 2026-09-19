@@ -1,6 +1,4 @@
-﻿import re
-from datetime import datetime, timedelta
-from typing import Optional, List
+from datetime import datetime
 
 from .db import get_db
 
@@ -42,10 +40,13 @@ def init_afk_db():
     conn.close()
 
 
-def set_afk(user_id: int, guild_id: int, reason: str, afk_since: str, estimated_return: Optional[str] = None):
+def set_afk(
+    user_id: int, guild_id: int, reason: str, afk_since: str, estimated_return: str | None = None
+):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         INSERT INTO afk_users (user_id, guild_id, afk_reason, afk_since, estimated_return, is_afk)
         VALUES (?, ?, ?, ?, ?, 1)
         ON CONFLICT(user_id, guild_id) DO UPDATE SET
@@ -53,7 +54,9 @@ def set_afk(user_id: int, guild_id: int, reason: str, afk_since: str, estimated_
             afk_since = excluded.afk_since,
             estimated_return = excluded.estimated_return,
             is_afk = 1
-    """, (user_id, guild_id, reason, afk_since, estimated_return))
+    """,
+        (user_id, guild_id, reason, afk_since, estimated_return),
+    )
     conn.commit()
     conn.close()
 
@@ -80,9 +83,12 @@ def get_afk_user(user_id: int, guild_id: int):
 def get_all_afk(guild_id: int) -> list:
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         SELECT * FROM afk_users WHERE guild_id = ? AND is_afk = 1 ORDER BY afk_since ASC
-    """, (guild_id,))
+    """,
+        (guild_id,),
+    )
     rows = c.fetchall()
     conn.close()
     return rows
@@ -91,9 +97,12 @@ def get_all_afk(guild_id: int) -> list:
 def check_cooldown(mentioner_id: int, afk_user_id: int, cooldown_seconds: int = 30) -> bool:
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         SELECT last_reply FROM afk_cooldown WHERE mentioner_id = ? AND afk_user_id = ?
-    """, (mentioner_id, afk_user_id))
+    """,
+        (mentioner_id, afk_user_id),
+    )
     row = c.fetchone()
     conn.close()
     if not row:
@@ -106,12 +115,15 @@ def set_cooldown(mentioner_id: int, afk_user_id: int):
     conn = get_db()
     c = conn.cursor()
     now = datetime.now().isoformat()
-    c.execute("""
+    c.execute(
+        """
         INSERT INTO afk_cooldown (mentioner_id, afk_user_id, last_reply)
         VALUES (?, ?, ?)
         ON CONFLICT(mentioner_id, afk_user_id) DO UPDATE SET
             last_reply = excluded.last_reply
-    """, (mentioner_id, afk_user_id, now))
+    """,
+        (mentioner_id, afk_user_id, now),
+    )
     conn.commit()
     conn.close()
 
@@ -128,12 +140,15 @@ def get_user_stats(user_id: int):
 def update_stats_on_set(user_id: int):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         INSERT INTO afk_stats (user_id, total_afk_count, total_afk_seconds, longest_afk_seconds)
         VALUES (?, 1, 0, 0)
         ON CONFLICT(user_id) DO UPDATE SET
             total_afk_count = total_afk_count + 1
-    """, (user_id,))
+    """,
+        (user_id,),
+    )
     conn.commit()
     conn.close()
 
@@ -141,7 +156,8 @@ def update_stats_on_set(user_id: int):
 def update_stats_on_remove(user_id: int, afk_seconds: int):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         INSERT INTO afk_stats (user_id, total_afk_count, total_afk_seconds, longest_afk_seconds)
         VALUES (?, 0, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
@@ -151,6 +167,8 @@ def update_stats_on_remove(user_id: int, afk_seconds: int):
                 THEN excluded.longest_afk_seconds
                 ELSE longest_afk_seconds
             END
-    """, (user_id, afk_seconds, afk_seconds))
+    """,
+        (user_id, afk_seconds, afk_seconds),
+    )
     conn.commit()
     conn.close()

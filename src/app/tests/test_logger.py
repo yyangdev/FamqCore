@@ -1,11 +1,11 @@
 import logging
 import os
+import shutil
 import tempfile
 import unittest
-import shutil
 
 import config
-from utils.logger import setup_logger, ColoredFormatter
+from utils.logger import ColoredFormatter, setup_logger
 
 
 class TestLogger(unittest.TestCase):
@@ -37,15 +37,20 @@ class TestLogger(unittest.TestCase):
         logger.info("test message")
         log_path = os.path.join(self.temp_dir, "bot.log")
         self.assertTrue(os.path.exists(log_path))
-        with open(log_path, "r", encoding="utf-8") as f:
+        with open(log_path, encoding="utf-8") as f:
             content = f.read()
         self.assertIn("test message", content)
 
     def test_colored_formatter_adds_ansi(self):
         formatter = ColoredFormatter("%(levelname)s | %(message)s")
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="hello", args=(), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="hello",
+            args=(),
+            exc_info=None,
         )
         formatted = formatter.format(record)
         self.assertIn("\033[32m", formatted)
@@ -60,7 +65,7 @@ class TestLogger(unittest.TestCase):
         logger.error("error msg")
 
         log_path = os.path.join(self.temp_dir, "bot.log")
-        with open(log_path, "r", encoding="utf-8") as f:
+        with open(log_path, encoding="utf-8") as f:
             content = f.read()
 
         self.assertIn("debug msg", content)

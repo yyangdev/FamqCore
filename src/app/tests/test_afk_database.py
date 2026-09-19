@@ -1,11 +1,11 @@
+import importlib
 import os
 import tempfile
 import unittest
-import importlib
 
 import config
-import database.db as db_module
 import database.afk_db as afk_module
+import database.db as db_module
 
 
 class TestAfkDatabase(unittest.TestCase):
@@ -78,7 +78,7 @@ class TestAfkDatabase(unittest.TestCase):
         self.db.set_afk(111, 456, "reason1", "2024-01-01T00:00:00")
         self.db.set_afk(222, 456, "reason2", "2024-01-02T00:00:00")
         self.db.set_afk(333, 789, "reason3", "2024-01-03T00:00:00")
-        
+
         rows = self.db.get_all_afk(456)
         self.assertEqual(len(rows), 2)
 
@@ -105,8 +105,13 @@ class TestAfkDatabase(unittest.TestCase):
         # После истечения кулдауна
         conn = db_module.get_db()
         c = conn.cursor()
-        past = (__import__("datetime").datetime.now() - __import__("datetime").timedelta(seconds=31)).isoformat()
-        c.execute("UPDATE afk_cooldown SET last_reply = ? WHERE mentioner_id = 100 AND afk_user_id = 200", (past,))
+        past = (
+            __import__("datetime").datetime.now() - __import__("datetime").timedelta(seconds=31)
+        ).isoformat()
+        c.execute(
+            "UPDATE afk_cooldown SET last_reply = ? WHERE mentioner_id = 100 AND afk_user_id = 200",
+            (past,),
+        )
         conn.commit()
         conn.close()
         result = self.db.check_cooldown(100, 200, 30)

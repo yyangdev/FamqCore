@@ -1,15 +1,14 @@
-import asyncio
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 
 import config
-from tickets.create_ticket import create_ticket
 from tickets.accept_ticket import AcceptButton, AcceptReasonModal
-from tickets.deny_ticket import DenyButton, DenyReasonModal
 from tickets.call_voice import VoiceCallButton, VoiceSelectView
 from tickets.close_ticket import CloseButton
+from tickets.create_ticket import create_ticket
+from tickets.deny_ticket import DenyButton, DenyReasonModal
 
 
 class TestAcceptButton(unittest.IsolatedAsyncioTestCase):
@@ -271,7 +270,9 @@ class TestCreateTicketErrors(unittest.IsolatedAsyncioTestCase):
         interaction.user = MagicMock()
         interaction.user.name = "Tester"
         interaction.user.id = 123
-        interaction.user.add_roles = AsyncMock(side_effect=discord.Forbidden(MagicMock(), "No perms"))
+        interaction.user.add_roles = AsyncMock(
+            side_effect=discord.Forbidden(MagicMock(), "No perms")
+        )
         interaction.user.create_dm = AsyncMock(return_value=MagicMock(send=AsyncMock()))
 
         interaction.response = MagicMock()
@@ -287,7 +288,7 @@ class TestCreateTicketErrors(unittest.IsolatedAsyncioTestCase):
 
         inputs = {"Никнейм": MagicMock(value="TestNick")}
 
-        with patch("tickets.create_ticket.save_ticket") as mock_save:
+        with patch("tickets.create_ticket.save_ticket"):
             with patch("tickets.create_ticket.FullTicketView", return_value=MagicMock()):
                 with patch("tickets.create_ticket.discord.utils.get", return_value=None):
                     await create_ticket(interaction, "RP ЗАЯВКА", "rp", inputs)
@@ -310,7 +311,9 @@ class TestCreateTicketErrors(unittest.IsolatedAsyncioTestCase):
         interaction.user.name = "Tester"
         interaction.user.id = 123
         interaction.user.add_roles = AsyncMock()
-        interaction.user.create_dm = AsyncMock(side_effect=discord.Forbidden(MagicMock(), "DM closed"))
+        interaction.user.create_dm = AsyncMock(
+            side_effect=discord.Forbidden(MagicMock(), "DM closed")
+        )
 
         interaction.response = MagicMock()
         interaction.response.send_message = AsyncMock()
@@ -325,7 +328,7 @@ class TestCreateTicketErrors(unittest.IsolatedAsyncioTestCase):
 
         inputs = {"Никнейм": MagicMock(value="TestNick")}
 
-        with patch("tickets.create_ticket.save_ticket") as mock_save:
+        with patch("tickets.create_ticket.save_ticket"):
             with patch("tickets.create_ticket.FullTicketView", return_value=MagicMock()):
                 with patch("tickets.create_ticket.discord.utils.get", return_value=None):
                     await create_ticket(interaction, "RP ЗАЯВКА", "rp", inputs)

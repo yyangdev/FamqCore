@@ -1,4 +1,3 @@
-import asyncio
 import sys
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -28,7 +27,7 @@ class TestOnReady(unittest.IsolatedAsyncioTestCase):
         bot.user = "TestBot#1234"
 
         with patch("main.init_db") as mock_init:
-            with patch("main.logger") as mock_logger:
+            with patch("main.logger"):
                 await main_module.on_ready()
 
         mock_init.assert_called_once()

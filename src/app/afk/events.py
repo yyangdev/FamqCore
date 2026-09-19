@@ -1,10 +1,7 @@
-﻿import discord
+import discord
 from discord.ext import commands
 
-from .models import (
-    get_afk_user, check_and_reply,
-    remove_afk, remove_afk_nickname, add_afk_nickname
-)
+from .models import check_and_reply, get_afk_user, remove_afk, remove_afk_nickname
 
 
 def setup_afk_events(bot: commands.Bot):
@@ -28,6 +25,7 @@ def setup_afk_events(bot: commands.Bot):
                 if check_and_reply(message.author.id, afk_member.id):
                     afk_since = row["afk_since"]
                     from datetime import datetime
+
                     duration = datetime.now() - datetime.fromisoformat(afk_since)
                     hours, remainder = divmod(int(duration.total_seconds()), 3600)
                     minutes, _ = divmod(remainder, 60)
@@ -44,7 +42,9 @@ def setup_afk_events(bot: commands.Bot):
         await bot.process_commands(message)
 
     @bot.event
-    async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    async def on_voice_state_update(
+        member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
+    ):
         if after.channel is not None and before.channel is None:
             guild_id = member.guild.id
             row = get_afk_user(member.id, guild_id)

@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python)](https://python.org)
 [![Discord.py](https://img.shields.io/badge/discord.py-2.x-5865F2?style=flat-square&logo=discord)](https://discordpy.readthedocs.io/)
-[![Tests](https://img.shields.io/badge/tests-238%2F238%20passed-brightgreen?style=flat-square)](./src/app/tests)
+[![CI](https://img.shields.io/github/actions/workflow/status/yyangdev/majestick-famq-discord-bot/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/yyangdev/majestick-famq-discord-bot/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](./LICENSE)
 
 </div>
@@ -98,42 +98,51 @@ graph TB
 erDiagram
     TICKETS {
         INTEGER id PK "AUTOINCREMENT"
-        TEXT user_id "ID заявителя"
-        TEXT ticket_type "RP | CAPT"
-        TEXT status "pending | accepted | denied"
-        TEXT data "JSON с ответами"
-        TEXT channel_id "ID канала тикета"
+        INTEGER channel_id "UNIQUE, ID канала тикета"
+        INTEGER user_id "ID заявителя"
+        TEXT user_name "Имя заявителя"
+        TEXT topic "Заголовок заявки"
+        TEXT type "rp | capt"
+        TEXT answers "JSON с ответами формы"
+        TEXT status "open | accepted | denied"
         TEXT created_at "Дата создания"
+        TEXT closed_at "Дата закрытия"
+        INTEGER closed_by "ID закрывшего"
+        TEXT reason "Причина принятия/отказа"
+    }
+
+    STATS {
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT date "UNIQUE, YYYY-MM-DD"
+        INTEGER total_applications "Всего за день"
+        INTEGER accepted "Принято за день"
+        INTEGER denied "Отклонено за день"
     }
 
     AFK_USERS {
-        INTEGER id PK "AUTOINCREMENT"
-        INTEGER user_id "ID пользователя"
-        INTEGER guild_id "ID сервера"
+        INTEGER user_id PK "ID пользователя"
+        INTEGER guild_id PK "ID сервера"
         TEXT afk_reason "Причина"
         TEXT afk_since "Начало AFK"
         TEXT estimated_return "Ожидаемое возвращение"
+        INTEGER is_afk "Флаг AFK"
     }
 
-    AFK_COOLDOWNS {
-        INTEGER id PK "AUTOINCREMENT"
-        INTEGER user_id "ID упомянувшего"
-        INTEGER target_id "ID AFK-пользователя"
-        INTEGER guild_id "ID сервера"
+    AFK_COOLDOWN {
+        INTEGER mentioner_id PK "ID упомянувшего"
+        INTEGER afk_user_id PK "ID AFK-пользователя"
         TEXT last_reply "Время последнего ответа"
     }
 
     AFK_STATS {
-        INTEGER id PK "AUTOINCREMENT"
-        INTEGER user_id "ID пользователя"
-        INTEGER guild_id "ID сервера"
-        INTEGER total_times "Всего уходов"
-        INTEGER total_seconds "Общее время в AFK"
-        INTEGER longest_seconds "Самая долгая сессия"
+        INTEGER user_id PK "ID пользователя"
+        INTEGER total_afk_count "Всего уходов"
+        INTEGER total_afk_seconds "Общее время в AFK"
+        INTEGER longest_afk_seconds "Самая долгая сессия"
     }
-
-    TICKETS ||--o{ AFK_USERS : "независимы"
 ```
+
+> ℹ️ Таблицы `afk_cooldown` и `afk_stats` пока не хранят `guild_id` (учёт глобальный по пользователю) — это известное ограничение, см. issue-трекер.
 
 ---
 
@@ -266,15 +275,22 @@ cp .env.example .env
 TOKEN=Ваш_Токен_От_Discord_Bot
 ```
 
-### 4. Настройка сервера Discord
+### 4. Привилегированные интенты
 
-Создайте на сервере:
+В [Discord Developer Portal](https://discord.com/developers/applications) → ваш бот → **Bot** → **Privileged Gateway Intents** включите:
 
-- **Категория:** `🎫𝙏𝙞𝙘𝙠𝙚𝙩` (или измените в `config.py`)
-- **Роли:** `Подал заявку`, `𝐑𝐞𝐜𝐫𝐮𝐢𝐭👨🏻‍💻`, `𝙊𝙬𝙣𝙚𝙧👑`, `𝘿𝙚𝙥.O𝙬𝙣𝙚𝙧⭐`, `𝙏𝙚𝙨𝙩🤓`
+- **MESSAGE CONTENT INTENT** — без него не работают команды с префиксом (`!regent`, `!afk`, ...).
+- **SERVER MEMBERS INTENT** — без него бот не видит участников (AFK-упоминания, заявитель в тикете).
+
+### 5. Настройка сервера Discord
+
+Значения по умолчанию заданы в [`config.py`](./src/app/config.py). Создайте на сервере (или измените имена в конфиге):
+
+- **Категория:** `𝙄𝙣𝙫𝙖𝙞𝙩 𝙁𝙖𝙢𝙞𝙡𝙮` (`TICKETS_CATEGORY_NAME`)
+- **Роли:** `Подал заявку`, `𝐑𝐞𝐜𝐫𝐮𝐢𝐭👨🏻‍💻`, `𝙊𝙬𝙣𝙚𝙧👑`, `𝘿𝙚𝙥.O𝙬𝙣𝙚𝙧⭐`, `Admin`, `Support`
 - **Каналы:** `📋ᥙᴛ᧐ᴦᥙ-ɜᥲяʙ᧐κ` (для логов), `🔊Обзвон 1/2/3`
 
-### 5. Запуск
+### 6. Запуск
 
 ```bash
 python main.py
@@ -382,7 +398,7 @@ docker build -t regent-bot .
 docker run -d --name regent-bot --env-file src/app/.env regent-bot
 ```
 
-При запуске через Docker база данных и логи сохраняются в volume `bot_data`.
+При запуске через Docker Compose база данных сохраняется в volume `bot_data`, а логи — в volume `bot_logs`.
 
 ---
 

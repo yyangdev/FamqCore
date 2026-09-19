@@ -5,15 +5,20 @@ import unittest
 from unittest.mock import patch
 
 import config
-from utils.logger import setup_logger, ColoredFormatter
+from utils.logger import ColoredFormatter, setup_logger
 
 
 class TestColoredFormatter(unittest.TestCase):
     def test_format_includes_levelname(self):
         formatter = ColoredFormatter("%(levelname)s - %(message)s")
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="test message", args=(), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="test message",
+            args=(),
+            exc_info=None,
         )
         result = formatter.format(record)
         self.assertIn("INFO", result)
@@ -22,8 +27,13 @@ class TestColoredFormatter(unittest.TestCase):
     def test_format_debug_color(self):
         formatter = ColoredFormatter("%(levelname)s - %(message)s")
         record = logging.LogRecord(
-            name="test", level=logging.DEBUG, pathname="", lineno=0,
-            msg="debug msg", args=(), exc_info=None
+            name="test",
+            level=logging.DEBUG,
+            pathname="",
+            lineno=0,
+            msg="debug msg",
+            args=(),
+            exc_info=None,
         )
         result = formatter.format(record)
         self.assertIn("DEBUG", result)
@@ -31,8 +41,13 @@ class TestColoredFormatter(unittest.TestCase):
     def test_format_warning_color(self):
         formatter = ColoredFormatter("%(levelname)s - %(message)s")
         record = logging.LogRecord(
-            name="test", level=logging.WARNING, pathname="", lineno=0,
-            msg="warning msg", args=(), exc_info=None
+            name="test",
+            level=logging.WARNING,
+            pathname="",
+            lineno=0,
+            msg="warning msg",
+            args=(),
+            exc_info=None,
         )
         result = formatter.format(record)
         self.assertIn("WARNING", result)
@@ -40,8 +55,13 @@ class TestColoredFormatter(unittest.TestCase):
     def test_format_error_color(self):
         formatter = ColoredFormatter("%(levelname)s - %(message)s")
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="", lineno=0,
-            msg="error msg", args=(), exc_info=None
+            name="test",
+            level=logging.ERROR,
+            pathname="",
+            lineno=0,
+            msg="error msg",
+            args=(),
+            exc_info=None,
         )
         result = formatter.format(record)
         self.assertIn("ERROR", result)
@@ -65,7 +85,10 @@ class TestSetupLoggerExtended(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.object(config, "LOG_DIR", tmpdir):
                 logger = setup_logger("test_stream_handler")
-                has_stream = any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) for h in logger.handlers)
+                has_stream = any(
+                    isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+                    for h in logger.handlers
+                )
                 self.assertTrue(has_stream)
                 self._cleanup_logger(logger)
 

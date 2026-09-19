@@ -1,13 +1,13 @@
+import importlib
 import os
 import tempfile
 import unittest
-import importlib
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-import config
-import database.db as db_module
-import database.afk_db as afk_module
 import afk.models as models_module
+import config
+import database.afk_db as afk_module
+import database.db as db_module
 
 
 class TestAfkModels(unittest.TestCase):
@@ -58,6 +58,7 @@ class TestAfkModels(unittest.TestCase):
     def test_remove_afk_updates_stats(self):
         self.models.set_afk(123, 456, "reason")
         import time
+
         time.sleep(1)
         self.models.remove_afk(123, 456)
         stats = self.models.get_user_stats(123)
@@ -98,8 +99,13 @@ class TestAfkModels(unittest.TestCase):
         # Манипулируем временем кулдауна в БД
         conn = db_module.get_db()
         c = conn.cursor()
-        past = (__import__("datetime").datetime.now() - __import__("datetime").timedelta(seconds=31)).isoformat()
-        c.execute("UPDATE afk_cooldown SET last_reply = ? WHERE mentioner_id = 100 AND afk_user_id = 200", (past,))
+        past = (
+            __import__("datetime").datetime.now() - __import__("datetime").timedelta(seconds=31)
+        ).isoformat()
+        c.execute(
+            "UPDATE afk_cooldown SET last_reply = ? WHERE mentioner_id = 100 AND afk_user_id = 200",
+            (past,),
+        )
         conn.commit()
         conn.close()
         result = self.models.check_and_reply(100, 200)
@@ -177,6 +183,7 @@ class TestAfkNickname(unittest.IsolatedAsyncioTestCase):
         member.nick = None
         member.display_name = "TestUser"
         from discord.errors import Forbidden
+
         member.edit = AsyncMock(side_effect=Forbidden(MagicMock(), "Missing Permissions"))
         result = await models_module.add_afk_nickname(member)
         self.assertFalse(result)
@@ -185,6 +192,7 @@ class TestAfkNickname(unittest.IsolatedAsyncioTestCase):
         member = MagicMock()
         member.nick = "[AFK] TestUser"
         from discord.errors import Forbidden
+
         member.edit = AsyncMock(side_effect=Forbidden(MagicMock(), "Missing Permissions"))
         result = await models_module.remove_afk_nickname(member)
         self.assertFalse(result)
@@ -212,14 +220,6 @@ class TestAfkNickname(unittest.IsolatedAsyncioTestCase):
         result = await models_module.remove_afk_nickname(member)
         self.assertTrue(result)
         member.edit.assert_called_once()
-
-    async def test_remove_afk_nickname_forbidden(self):
-        member = MagicMock()
-        member.nick = "[AFK] TestUser"
-        from discord.errors import Forbidden
-        member.edit = AsyncMock(side_effect=Forbidden(MagicMock(), "Missing Permissions"))
-        result = await models_module.remove_afk_nickname(member)
-        self.assertFalse(result)
 
 
 if __name__ == "__main__":

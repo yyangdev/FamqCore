@@ -1,4 +1,4 @@
-﻿from .commands import AfkCog
+from .commands import AfkCog
 from .events import setup_afk_events
 
 

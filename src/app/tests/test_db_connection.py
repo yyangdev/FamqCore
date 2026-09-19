@@ -1,8 +1,8 @@
+import importlib
 import os
 import sqlite3
 import tempfile
 import unittest
-import importlib
 
 import config
 import database.db as db_module

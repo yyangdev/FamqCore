@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from .db import get_db
 
 
@@ -67,11 +68,14 @@ def init_db():
 def save_ticket(channel_id, user_id, user_name, topic, ticket_type, answers, created_at):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
-        INSERT OR REPLACE INTO tickets 
+    c.execute(
+        """
+        INSERT OR REPLACE INTO tickets
         (channel_id, user_id, user_name, topic, type, answers, created_at, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
-    """, (channel_id, user_id, user_name, topic, ticket_type, answers, created_at))
+    """,
+        (channel_id, user_id, user_name, topic, ticket_type, answers, created_at),
+    )
     conn.commit()
     conn.close()
 
@@ -98,11 +102,14 @@ def update_ticket_status(channel_id, status, closed_by=None, reason=None):
     c = conn.cursor()
     now = datetime.now()
 
-    c.execute("""
-        UPDATE tickets 
+    c.execute(
+        """
+        UPDATE tickets
         SET status = ?, closed_at = ?, closed_by = ?, reason = ?
         WHERE channel_id = ?
-    """, (status, now.isoformat(), closed_by, reason, channel_id))
+    """,
+        (status, now.isoformat(), closed_by, reason, channel_id),
+    )
 
     date = now.strftime("%Y-%m-%d")
     accepted = 1 if status == "accepted" else 0
@@ -110,18 +117,24 @@ def update_ticket_status(channel_id, status, closed_by=None, reason=None):
 
     c.execute("SELECT * FROM stats WHERE date = ?", (date,))
     if c.fetchone():
-        c.execute("""
+        c.execute(
+            """
             UPDATE stats
             SET total_applications = total_applications + 1,
                 accepted = accepted + ?,
                 denied = denied + ?
             WHERE date = ?
-        """, (accepted, denied, date))
+        """,
+            (accepted, denied, date),
+        )
     else:
-        c.execute("""
+        c.execute(
+            """
             INSERT INTO stats (date, total_applications, accepted, denied)
             VALUES (?, 1, ?, ?)
-        """, (date, accepted, denied))
+        """,
+            (date, accepted, denied),
+        )
 
     conn.commit()
     conn.close()
@@ -144,9 +157,9 @@ def get_stats():
     open_count = c.fetchone()[0] or 0
 
     c.execute("""
-        SELECT date, total_applications, accepted, denied 
-        FROM stats 
-        ORDER BY date DESC 
+        SELECT date, total_applications, accepted, denied
+        FROM stats
+        ORDER BY date DESC
         LIMIT 7
     """)
     weekly = c.fetchall()
@@ -164,11 +177,14 @@ def get_stats():
 def get_all_tickets(limit=50):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
-        SELECT * FROM tickets 
-        ORDER BY created_at DESC 
+    c.execute(
+        """
+        SELECT * FROM tickets
+        ORDER BY created_at DESC
         LIMIT ?
-    """, (limit,))
+    """,
+        (limit,),
+    )
     rows = c.fetchall()
     conn.close()
     return rows
