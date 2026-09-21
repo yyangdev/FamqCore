@@ -40,7 +40,7 @@ def save_ticket(channel_id, user_id, user_name, topic, ticket_type, answers, cre
     c = conn.cursor()
     c.execute(
         """
-        INSERT OR REPLACE INTO tickets
+        INSERT INTO tickets
         (channel_id, user_id, user_name, topic, type, answers, created_at, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
     """,
@@ -68,6 +68,12 @@ def delete_ticket(channel_id):
 
 
 def update_ticket_status(channel_id, status, closed_by=None, reason=None):
+    """Переводит открытый тикет в новый статус.
+
+    Возвращает True, если тикет был открыт и обновлён; False — если тикета
+    нет или он уже обработан (повторное нажатие статистику не портит).
+    Статистика пополняется только реальными решениями (accepted/denied).
+    """
     conn = get_db()
     c = conn.cursor()
     now = datetime.now()
@@ -76,38 +82,43 @@ def update_ticket_status(channel_id, status, closed_by=None, reason=None):
         """
         UPDATE tickets
         SET status = ?, closed_at = ?, closed_by = ?, reason = ?
-        WHERE channel_id = ?
+        WHERE channel_id = ? AND status = 'open'
     """,
         (status, now.isoformat(), closed_by, reason, channel_id),
     )
+    if c.rowcount == 0:
+        conn.close()
+        return False
 
-    date = now.strftime("%Y-%m-%d")
-    accepted = 1 if status == "accepted" else 0
-    denied = 0 if status == "accepted" else 1
+    if status in ("accepted", "denied"):
+        date = now.strftime("%Y-%m-%d")
+        accepted = 1 if status == "accepted" else 0
+        denied = 1 if status == "denied" else 0
 
-    c.execute("SELECT * FROM stats WHERE date = ?", (date,))
-    if c.fetchone():
-        c.execute(
-            """
-            UPDATE stats
-            SET total_applications = total_applications + 1,
-                accepted = accepted + ?,
-                denied = denied + ?
-            WHERE date = ?
-        """,
-            (accepted, denied, date),
-        )
-    else:
-        c.execute(
-            """
-            INSERT INTO stats (date, total_applications, accepted, denied)
-            VALUES (?, 1, ?, ?)
-        """,
-            (date, accepted, denied),
-        )
+        c.execute("SELECT * FROM stats WHERE date = ?", (date,))
+        if c.fetchone():
+            c.execute(
+                """
+                UPDATE stats
+                SET total_applications = total_applications + 1,
+                    accepted = accepted + ?,
+                    denied = denied + ?
+                WHERE date = ?
+            """,
+                (accepted, denied, date),
+            )
+        else:
+            c.execute(
+                """
+                INSERT INTO stats (date, total_applications, accepted, denied)
+                VALUES (?, 1, ?, ?)
+            """,
+                (date, accepted, denied),
+            )
 
     conn.commit()
     conn.close()
+    return True
 
 
 def get_stats():

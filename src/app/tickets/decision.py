@@ -5,7 +5,11 @@ import discord
 
 import config
 from database.tickets_db import get_ticket, update_ticket_status
+from utils.logcenter import LOG_KEY_DECISIONS, send_to_log
 from utils.logger import logger
+from utils.permissions import is_staff
+
+from .transcript import build_transcript_file
 
 
 @dataclass(frozen=True)
@@ -18,6 +22,7 @@ class Decision:
     channel_note: str
     reply_text: str
     log_text: str
+    dm_text: str
 
 
 ACCEPT = Decision(
@@ -29,6 +34,7 @@ ACCEPT = Decision(
     channel_note="✅ Заявка принята! {mention}",
     reply_text="Заявка принята",
     log_text="принят",
+    dm_text=config.DM_TICKET_ACCEPTED,
 )
 
 DENY = Decision(
@@ -40,6 +46,7 @@ DENY = Decision(
     channel_note="❌ Заявка отклонена! Причина: {reason}",
     reply_text="Заявка отклонена",
     log_text="отклонён",
+    dm_text=config.DM_TICKET_DENIED,
 )
 
 
@@ -61,17 +68,25 @@ class DecisionReasonModal(discord.ui.Modal):
         guild = interaction.guild
         decision = self.decision
 
-        log_ch = discord.utils.get(guild.channels, name=config.LOG_CHANNEL_NAME)
-        if not log_ch:
-            log_ch = await guild.create_text_channel(config.LOG_CHANNEL_NAME)
-
-        ticket = get_ticket(self.channel.id)
-        applicant = guild.get_member(ticket["user_id"]) if ticket else None
-        mention = applicant.mention if applicant else "—"
-
-        update_ticket_status(
+        updated = update_ticket_status(
             self.channel.id, decision.status, interaction.user.id, self.reason.value
         )
+        if not updated:
+            await interaction.response.send_message(config.TICKET_ALREADY_DECIDED, ephemeral=True)
+            return
+
+        ticket = get_ticket(self.channel.id)
+        applicant = guild.get_member(ticket["user_id"]) if ticket and guild else None
+        mention = applicant.mention if applicant else "—"
+
+        # заявитель должен узнать о решении, а не только молча исчезнуть вместе с каналом
+        if applicant:
+            try:
+                await applicant.send(decision.dm_text.format(reason=self.reason.value))
+            except Exception:
+                pass  # личка закрыта — не критично
+
+        files = await build_transcript_file(self.channel)
 
         embed = discord.Embed(
             title=decision.embed_title,
@@ -81,7 +96,7 @@ class DecisionReasonModal(discord.ui.Modal):
         embed.add_field(name="Заявитель", value=mention, inline=False)
         embed.add_field(name="Причина", value=self.reason.value, inline=False)
         embed.add_field(name="Рекрут", value=interaction.user.mention, inline=False)
-        await log_ch.send(embed=embed)
+        await send_to_log(guild, LOG_KEY_DECISIONS, embed=embed, files=files)
 
         await self.channel.send(
             decision.channel_note.format(mention=mention, reason=self.reason.value)
@@ -98,6 +113,9 @@ class DecisionButton(discord.ui.Button):
     decision = None
 
     async def callback(self, interaction: discord.Interaction):
+        if not is_staff(interaction.user):
+            await interaction.response.send_message(config.TICKET_NO_PERMISSION, ephemeral=True)
+            return
         modal = DecisionReasonModal(interaction.channel, self.decision)
         await interaction.response.send_modal(modal)
 
@@ -106,11 +124,15 @@ class AcceptButton(DecisionButton):
     decision = ACCEPT
 
     def __init__(self):
-        super().__init__(label="Принять", style=discord.ButtonStyle.success)
+        super().__init__(
+            label="Принять", style=discord.ButtonStyle.success, custom_id="ticket_accept"
+        )
 
 
 class DenyButton(DecisionButton):
     decision = DENY
 
     def __init__(self):
-        super().__init__(label="Отказать", style=discord.ButtonStyle.danger)
+        super().__init__(
+            label="Отказать", style=discord.ButtonStyle.danger, custom_id="ticket_deny"
+        )
