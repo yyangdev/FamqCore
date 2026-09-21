@@ -39,6 +39,7 @@ class TicketsCog(commands.Cog):
         self.bot = bot
 
     @commands.command(name=config.CMD_REGENT)
+    @commands.guild_only()
     async def regent_apply(self, ctx):
         embed = discord.Embed(
             title=config.REGENT_EMBED_TITLE,
@@ -48,6 +49,7 @@ class TicketsCog(commands.Cog):
         await ctx.send(embed=embed, view=TicketTypeView())
 
     @commands.command(name=config.CMD_STATS)
+    @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def show_stats(self, ctx):
         stats = get_stats()
@@ -56,9 +58,20 @@ class TicketsCog(commands.Cog):
         embed.add_field(name="Принято", value=stats["accepted"], inline=True)
         embed.add_field(name="Отклонено", value=stats["denied"], inline=True)
         embed.add_field(name="Открыто", value=stats["open"], inline=True)
+
+        weekly = stats["weekly"] if isinstance(stats, dict) else None
+        if weekly:
+            lines = [
+                f"{row['date']}: {row['total_applications']} "
+                f"(✅ {row['accepted']} / ❌ {row['denied']})"
+                for row in weekly
+            ]
+            embed.add_field(name="По дням", value="\n".join(lines)[:1024], inline=False)
+
         await ctx.send(embed=embed)
 
     @commands.command(name=config.CMD_HISTORY)
+    @commands.guild_only()
     @commands.has_permissions(administrator=True)
     async def show_history(self, ctx, limit: int = 10):
         tickets = get_all_tickets(limit)
