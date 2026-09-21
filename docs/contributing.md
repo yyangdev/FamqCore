@@ -13,7 +13,7 @@
 ## С чего начать
 
 1. Посмотрите [Issues](https://github.com/yyangdev/majestick-famq-discord-bot/issues) и отпишитесь в задаче, что берёте её.
-2. Сверьтесь с критичным списком в [ROADMAP #99](https://github.com/yyangdev/majestick-famq-discord-bot/issues/99) - если чувствуете силы, берите оттуда.
+2. Сверьтесь с приоритетами в [epic #108](https://github.com/yyangdev/majestick-famq-discord-bot/issues/108). Сначала берите задачи без незакрытых зависимостей.
 
 ## Процесс
 

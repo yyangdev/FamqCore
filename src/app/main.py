@@ -55,7 +55,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
         await ctx.send(f"Неверный аргумент: {error}")
         return
 
-    if isinstance(error, (commands.MissingPermissions, commands.CheckFailure)):
+    if isinstance(error, commands.MissingPermissions | commands.CheckFailure):
         await ctx.send("⛔ Недостаточно прав для этой команды.")
         return
 
