@@ -4,13 +4,14 @@ from datetime import datetime, timedelta
 import discord
 
 import config
+from utils.logcenter import LOG_KEY_AFK, send_to_log
 
 
 def parse_return_time(text: str):
     text = text.lower().strip()
     now = datetime.now()
 
-    # Формат ЧЧ:ММ
+    # Формат ЧЧ:ММ — strptime сам отвалидирует диапазоны (минуты > 59 отвалятся)
     try:
         dt = datetime.strptime(text, "%H:%M")
         target = now.replace(hour=dt.hour, minute=dt.minute, second=0, microsecond=0)
@@ -20,18 +21,16 @@ def parse_return_time(text: str):
     except ValueError:
         pass
 
-    # Поиск числа и ключевых слов
-    match = re.search(r"(\d+)", text)
+    # Число с единицей: «2 часа», «30 мин», «3 ч», «через 15 м»
+    match = re.search(r"(\d+)\s*(час(?:а|ов)?|мин(?:ут[аы]?)?|ч|м)\b", text)
     if not match:
         return None
     num = int(match.group(1))
+    unit = match.group(2)
 
-    if "час" in text or "ч" in text:
+    if unit.startswith("ч"):
         return now + timedelta(hours=num)
-    elif "мин" in text or "м" in text:
-        return now + timedelta(minutes=num)
-
-    return None
+    return now + timedelta(minutes=num)
 
 
 def build_afk_embed(guild: discord.Guild):
@@ -46,6 +45,8 @@ def build_afk_embed(guild: discord.Guild):
     embed.add_field(name=config.AFK_MENU_TOTAL, value=f"{len(rows)} человек", inline=False)
 
     lines = []
+    overflow = 0
+    total_len = 0
     for idx, row in enumerate(rows, 1):
         member = guild.get_member(row["user_id"])
         name = member.mention if member else f"<@{row['user_id']}>"
@@ -59,12 +60,18 @@ def build_afk_embed(guild: discord.Guild):
                 return_str = ret.strftime("%H:%M")
             except Exception:
                 return_str = str(row["estimated_return"])[:20]
-        lines.append(
-            f"{idx}) {name} | Причина: {reason}    Ушел: {since_str} | Вернется: {return_str}"
-        )
+        line = f"{idx}) {name} | Причина: {reason}    Ушел: {since_str} | Вернется: {return_str}"
+        # запас под лимит description (4096), иначе длинный список ломает эмбед
+        if total_len + len(line) > 3900:
+            overflow += 1
+            continue
+        total_len += len(line) + 1
+        lines.append(line)
 
     if lines:
         embed.description = "\n".join(lines)
+        if overflow:
+            embed.description += f"\n…и ещё {overflow}"
     else:
         embed.description = config.AFK_MENU_NO_AFK
 
@@ -84,19 +91,31 @@ class AfkReturnView(discord.ui.View):
             await interaction.response.send_message(config.AFK_INVALID_USER, ephemeral=True)
             return
 
-        from .models import remove_afk, remove_afk_nickname
+        from .models import get_afk_user, remove_afk, remove_afk_nickname
 
+        row = get_afk_user(self.member.id, self.guild_id)
         duration = remove_afk(self.member.id, self.guild_id)
         if duration is None:
             await interaction.response.send_message(config.AFK_RETURN_ERROR, ephemeral=True)
             return
 
-        await remove_afk_nickname(self.member)
+        await remove_afk_nickname(self.member, row.get("original_nick") if row else None)
         await interaction.response.edit_message(
             content=f"{config.AFK_RETURN_SUCCESS} Отсутствовали: {self.duration_text}.",
             embed=None,
             view=None,
         )
+
+        if interaction.guild is not None:
+            log_embed = discord.Embed(
+                title=config.AFK_LOG_REMOVED_TITLE,
+                color=discord.Color.green(),
+            )
+            log_embed.add_field(name="Пользователь", value=self.member.mention, inline=True)
+            log_embed.add_field(name="Отсутствовал", value=self.duration_text, inline=True)
+            log_embed.add_field(name="Кто снял", value="сам", inline=True)
+            await send_to_log(interaction.guild, LOG_KEY_AFK, embed=log_embed)
+
         self.stop()
 
     @discord.ui.button(label=config.AFK_BUTTON_STAY, style=discord.ButtonStyle.danger)
@@ -143,25 +162,56 @@ class AfkSetModal(discord.ui.Modal, title=config.AFK_MODAL_TITLE):
             return
 
         estimated_return = parsed.isoformat()
-        set_afk(self.member.id, self.guild_id, reason, estimated_return)
+        set_afk(self.member.id, self.guild_id, reason, estimated_return, self.member.nick)
         await add_afk_nickname(self.member)
         await interaction.response.send_message(
             f"🔴 Вы в AFK.\nПричина: {reason}\nВернётесь: <t:{int(parsed.timestamp())}:R>",
             ephemeral=True,
         )
 
+        if self.guild is not None:
+            log_embed = discord.Embed(
+                title=config.AFK_LOG_SET_TITLE,
+                color=discord.Color.red(),
+            )
+            log_embed.add_field(name="Пользователь", value=self.member.mention, inline=True)
+            log_embed.add_field(
+                name="Вернётся", value=f"<t:{int(parsed.timestamp())}:f>", inline=True
+            )
+            log_embed.add_field(name="Причина", value=reason, inline=False)
+            await send_to_log(self.guild, LOG_KEY_AFK, embed=log_embed)
+
 
 class AfkMenuView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label=config.AFK_BUTTON_LEAVE, style=discord.ButtonStyle.danger)
+    async def _check_guild(self, interaction: discord.Interaction) -> bool:
+        if interaction.guild is None:
+            await interaction.response.send_message(config.AFK_GUILD_ONLY, ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(
+        label=config.AFK_BUTTON_LEAVE,
+        style=discord.ButtonStyle.danger,
+        custom_id="afk_leave",
+    )
     async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_guild(interaction):
+            return
         modal = AfkSetModal(interaction.user, interaction.guild_id, interaction.guild)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label=config.AFK_BUTTON_RETURN, style=discord.ButtonStyle.success)
+    @discord.ui.button(
+        label=config.AFK_BUTTON_RETURN,
+        style=discord.ButtonStyle.success,
+        custom_id="afk_return",
+    )
     async def return_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_guild(interaction):
+            return
+
         from .models import format_duration, get_afk_user
 
         row = get_afk_user(interaction.user.id, interaction.guild_id)
@@ -181,7 +231,13 @@ class AfkMenuView(discord.ui.View):
         view = AfkReturnView(interaction.user, interaction.guild_id, duration_text)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    @discord.ui.button(label=config.AFK_BUTTON_REFRESH, style=discord.ButtonStyle.primary)
+    @discord.ui.button(
+        label=config.AFK_BUTTON_REFRESH,
+        style=discord.ButtonStyle.primary,
+        custom_id="afk_refresh",
+    )
     async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_guild(interaction):
+            return
         embed = build_afk_embed(interaction.guild)
         await interaction.response.send_message(embed=embed, ephemeral=True)

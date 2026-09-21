@@ -32,10 +32,13 @@ def format_duration(seconds):
     return " ".join(parts)
 
 
-def set_afk(user_id, guild_id, reason, estimated_return=None):
+def set_afk(user_id, guild_id, reason, estimated_return=None, original_nick=None):
     now = datetime.now().isoformat()
-    db_set_afk(user_id, guild_id, reason, now, estimated_return)
-    update_stats_on_set(user_id)
+    was_afk = db_get_afk_user(user_id, guild_id) is not None
+    db_set_afk(user_id, guild_id, reason, now, estimated_return, original_nick)
+    # обновление причины у уже стоящего AFK — не новый уход, статистику не плюсуем
+    if not was_afk:
+        update_stats_on_set(user_id)
 
 
 def remove_afk(user_id, guild_id):
@@ -81,12 +84,18 @@ async def add_afk_nickname(member):
         return False
 
 
-async def remove_afk_nickname(member):
+async def remove_afk_nickname(member, original_nick=None):
     if not member.nick or config.AFK_NICK_PREFIX not in member.nick:
         return True
-    new_nick = member.nick.replace(config.AFK_NICK_PREFIX, "", 1)[:32]
+    if original_nick:
+        new_nick = original_nick[:32]
+    else:
+        new_nick = member.nick.replace(config.AFK_NICK_PREFIX, "", 1).strip()[:32]
+        # если до AFK своего ника не было — возвращаем None, а не копию имени
+        if not new_nick or new_nick == member.display_name:
+            new_nick = None
     try:
-        await member.edit(nick=new_nick or None)
+        await member.edit(nick=new_nick)
         return True
     except discord.Forbidden:
         return False

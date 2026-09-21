@@ -4,8 +4,16 @@ import discord
 from discord.ext import commands
 
 import config
+from utils.logcenter import LOG_KEY_AFK, send_to_log
+from utils.permissions import is_staff
 
-from .models import format_duration, get_afk_user, get_user_stats
+from .models import (
+    format_duration,
+    get_afk_user,
+    get_user_stats,
+    remove_afk,
+    remove_afk_nickname,
+)
 from .views import AfkMenuView, build_afk_embed
 
 
@@ -14,6 +22,7 @@ class AfkCog(commands.Cog):
         self.bot = bot
 
     @commands.command(name="afk")
+    @commands.guild_only()
     async def afk_command(self, ctx: commands.Context):
         embed = discord.Embed(
             title=config.AFK_EMBED_TITLE,
@@ -23,10 +32,12 @@ class AfkCog(commands.Cog):
         await ctx.send(embed=embed, view=AfkMenuView())
 
     @commands.command(name="afk_list")
+    @commands.guild_only()
     async def afk_list_command(self, ctx: commands.Context):
         await ctx.send(embed=build_afk_embed(ctx.guild))
 
     @commands.command(name="afk_check")
+    @commands.guild_only()
     async def afk_check_command(self, ctx: commands.Context, member: discord.Member):
         row = get_afk_user(member.id, ctx.guild.id)
         if not row:
@@ -46,14 +57,17 @@ class AfkCog(commands.Cog):
             title=member.display_name,
             color=discord.Color.orange(),
         )
-        embed.add_field(name="Статус", value=config.AFK_AFK_STATUS, inline=False)
-        embed.add_field(name="Причина", value=reason, inline=False)
-        embed.add_field(name="Ушёл", value=afk_since.strftime("%H:%M"), inline=True)
-        embed.add_field(name="Время в AFK", value=format_duration(duration), inline=True)
+        embed.add_field(name=config.AFK_FIELD_STATUS, value=config.AFK_AFK_STATUS, inline=False)
+        embed.add_field(name=config.AFK_FIELD_REASON, value=reason, inline=False)
+        embed.add_field(name=config.AFK_FIELD_LEFT, value=afk_since.strftime("%H:%M"), inline=True)
+        embed.add_field(
+            name=config.AFK_FIELD_DURATION, value=format_duration(duration), inline=True
+        )
 
         await ctx.send(embed=embed)
 
     @commands.command(name="afk_stats")
+    @commands.guild_only()
     async def afk_stats_command(self, ctx: commands.Context, member: discord.Member):
         stats = get_user_stats(member.id)
         if not stats:
@@ -82,3 +96,30 @@ class AfkCog(commands.Cog):
         )
 
         await ctx.send(embed=embed)
+
+    @commands.command(name=config.CMD_AFK_REMOVE)
+    @commands.guild_only()
+    async def afk_remove_command(self, ctx: commands.Context, member: discord.Member):
+        """Принудительно снять AFK с пользователя (только модераторы)."""
+        if not is_staff(ctx.author):
+            await ctx.send(config.AFK_NO_PERMISSION)
+            return
+
+        row = get_afk_user(member.id, ctx.guild.id)
+        duration = remove_afk(member.id, ctx.guild.id)
+        if duration is None:
+            await ctx.send(config.AFK_CHECKED_NOT_AFK)
+            return
+
+        await remove_afk_nickname(member, row.get("original_nick") if row else None)
+
+        embed = discord.Embed(
+            title=config.AFK_LOG_REMOVED_TITLE,
+            color=discord.Color.green(),
+        )
+        embed.add_field(name="Пользователь", value=member.mention, inline=True)
+        embed.add_field(name="Отсутствовал", value=format_duration(duration), inline=True)
+        embed.add_field(name="Снял", value=ctx.author.mention, inline=True)
+
+        await ctx.send(embed=embed)
+        await send_to_log(ctx.guild, LOG_KEY_AFK, embed=embed)
