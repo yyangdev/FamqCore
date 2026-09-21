@@ -13,10 +13,15 @@ def init_afk_db():
             afk_reason TEXT DEFAULT 'Отошёл',
             afk_since TEXT NOT NULL,
             estimated_return TEXT,
+            original_nick TEXT,
             is_afk INTEGER DEFAULT 1,
             PRIMARY KEY (user_id, guild_id)
         )
     """)
+    # миграция для баз, где таблица уже была без original_nick
+    cols = {row["name"] for row in c.execute("PRAGMA table_info(afk_users)")}
+    if "original_nick" not in cols:
+        c.execute("ALTER TABLE afk_users ADD COLUMN original_nick TEXT")
     c.execute("""
         CREATE INDEX IF NOT EXISTS idx_afk_users_guild ON afk_users(guild_id)
     """)
@@ -41,21 +46,28 @@ def init_afk_db():
 
 
 def set_afk(
-    user_id: int, guild_id: int, reason: str, afk_since: str, estimated_return: str | None = None
+    user_id: int,
+    guild_id: int,
+    reason: str,
+    afk_since: str,
+    estimated_return: str | None = None,
+    original_nick: str | None = None,
 ):
     conn = get_db()
     c = conn.cursor()
     c.execute(
         """
-        INSERT INTO afk_users (user_id, guild_id, afk_reason, afk_since, estimated_return, is_afk)
-        VALUES (?, ?, ?, ?, ?, 1)
+        INSERT INTO afk_users
+            (user_id, guild_id, afk_reason, afk_since, estimated_return, original_nick, is_afk)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
         ON CONFLICT(user_id, guild_id) DO UPDATE SET
             afk_reason = excluded.afk_reason,
             afk_since = excluded.afk_since,
             estimated_return = excluded.estimated_return,
+            original_nick = excluded.original_nick,
             is_afk = 1
     """,
-        (user_id, guild_id, reason, afk_since, estimated_return),
+        (user_id, guild_id, reason, afk_since, estimated_return, original_nick),
     )
     conn.commit()
     conn.close()
@@ -94,6 +106,27 @@ def get_all_afk(guild_id: int) -> list:
     return rows
 
 
+def get_expired_afk(guild_id: int, now_iso: str) -> list:
+    """AFK-записи сервера, у которых время возврата уже наступило.
+
+    Сравнение строк корректно: даты хранятся в ISO-формате datetime.isoformat().
+    """
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT * FROM afk_users
+        WHERE guild_id = ? AND is_afk = 1
+          AND estimated_return IS NOT NULL AND estimated_return <= ?
+        ORDER BY afk_since ASC
+    """,
+        (guild_id, now_iso),
+    )
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
 def check_cooldown(mentioner_id: int, afk_user_id: int, cooldown_seconds: int = 30) -> bool:
     conn = get_db()
     c = conn.cursor()
@@ -126,6 +159,17 @@ def set_cooldown(mentioner_id: int, afk_user_id: int):
     )
     conn.commit()
     conn.close()
+
+
+def cleanup_cooldowns(before_iso: str) -> int:
+    """Удаляет записи кулдауна старше даты (таблица не должна расти бесконечно)."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM afk_cooldown WHERE last_reply < ?", (before_iso,))
+    removed = c.rowcount
+    conn.commit()
+    conn.close()
+    return removed
 
 
 def get_user_stats(user_id: int):
