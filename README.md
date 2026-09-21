@@ -1,14 +1,18 @@
-# Regent Famq Bot
+# Regent FamQ Bot
+
+[![CI](https://github.com/yyangdev/majestick-famq-discord-bot/actions/workflows/tests.yml/badge.svg)](https://github.com/yyangdev/majestick-famq-discord-bot/actions/workflows/tests.yml)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Discord-бот для игровой семьи Regent на проекте Majestic RP. Принимает заявки на вступление, ведёт учёт AFK-статусов и статистику по рекрутингу.
 
-> **Проект в бета-стадии.** Мы только начинаем активную разработку и ищем помощников: разработчиков на Python, тестировщиков и просто людей с идеями. Хотите помочь - пишите, контакты ниже.
+> **Проект в beta.** Основные сценарии работают, но до мульти-серверного использования необходимо завершить изоляцию данных и миграции. Актуальные блокеры собраны в [epic #108](https://github.com/yyangdev/majestick-famq-discord-bot/issues/108).
 
 ## Что умеет бот
 
-- Тикет система с двумя системами заявок рп заявка и капт заявка
-- AFK-система: статус с причиной и временем возврата, автоответ на упоминания, статистика
-- Команды статистики `!stats` и истории `!history` для администраторов(будет переделанно в веб панель)
+- Тикет-система с двумя типами заявок: RP и CAPT
+- AFK-система: статус с причиной и временем возврата, автоответ на упоминания и статистика
+- Команды `!stats` и `!history` для администраторов; в будущем их заменит веб-панель
 
 ## Быстрый старт
 
