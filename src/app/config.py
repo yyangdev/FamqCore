@@ -4,30 +4,102 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _int_env(name: str):
+    """ID из .env как int; None, если переменная не задана или не число."""
+    value = os.getenv(name)
+    if not value:
+        return None
+    value = value.strip()
+    return int(value) if value.isdigit() else None
+
+
+def _int_list_env(name: str) -> list:
+    """Список ID из .env через запятую (пустой список, если не задано)."""
+    value = os.getenv(name, "")
+    return [int(p) for p in (x.strip() for x in value.split(",")) if p.isdigit()]
+
+
 TOKEN = os.getenv("TOKEN")
 DB_PATH = os.path.join(os.path.dirname(__file__), "database", "database.db")
 LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
 
+# ---------------------------------------------------------------------------
+# ID всех объектов сервера задаются через .env (см. .env.example).
+# Бот работает по ID; имя используется только как запасной вариант,
+# если соответствующий ID не задан.
+# ---------------------------------------------------------------------------
+
 # Категория для создания тикетов
 TICKETS_CATEGORY_NAME = "𝙄𝙣𝙫𝙖𝙞𝙩 𝙁𝙖𝙢𝙞𝙡𝙮"
+TICKETS_CATEGORY_ID = _int_env("TICKETS_CATEGORY_ID")
 
 # Роли
 ROLE_APPLIED = "Подал заявку"  # выдается при создание тикета
+ROLE_APPLIED_ID = _int_env("ROLE_APPLIED_ID")
 ROLE_RECRUITER = "𝐑𝐞𝐜𝐫𝐮𝐢𝐭👨🏻‍💻"
+ROLE_RECRUITER_ID = _int_env("ROLE_RECRUITER_ID")
 ROLE_OWNER = "𝙊𝙬𝙣𝙚𝙧👑"
+ROLE_OWNER_ID = _int_env("ROLE_OWNER_ID")
 ROLE_DEP_OWNER = "𝘿𝙚𝙥.O𝙬𝙣𝙚𝙧⭐"
+ROLE_DEP_OWNER_ID = _int_env("ROLE_DEP_OWNER_ID")
 ROLE_ADMIN = "Admin"
+ROLE_ADMIN_ID = _int_env("ROLE_ADMIN_ID")
 ROLE_SUPPORT = "Support"
+ROLE_SUPPORT_ID = _int_env("ROLE_SUPPORT_ID")
+
+# ID стафф-ролей (без None) — права на модерацию AFK и доступ к лог-каналу
+STAFF_ROLE_IDS = [
+    role_id
+    for role_id in (
+        ROLE_RECRUITER_ID,
+        ROLE_OWNER_ID,
+        ROLE_DEP_OWNER_ID,
+        ROLE_ADMIN_ID,
+        ROLE_SUPPORT_ID,
+    )
+    if role_id
+]
 
 # Каналы
 LOG_CHANNEL_NAME = "📋ᥙᴛ᧐ᴦᥙ-ɜᥲяʙ᧐κ"
+LOG_CHANNEL_ID = _int_env("LOG_CHANNEL_ID")
 VOICE_CHANNELS = ["🔊Обзвон 1", "🔊Обзвон 2", "🔊Обзвон 3"]
+VOICE_CHANNEL_IDS = _int_list_env("VOICE_CHANNEL_IDS")
+
+# Лог-центр: один канал, внутри — ветки по категориям.
+# ID веток можно задать в .env; иначе бот сам создаст их по именам.
+LOG_KEY_TICKETS = "tickets"  # новые заявки
+LOG_KEY_DECISIONS = "decisions"  # решения по заявкам
+LOG_KEY_AFK = "afk"  # установка/снятие AFK
+LOG_KEY_CALLS = "calls"  # вызовы на обзвон
+LOG_KEY_STATS = "stats"  # статистика
+LOG_KEY_ERRORS = "errors"  # ошибки бота
+
+LOG_THREAD_NAMES = {
+    LOG_KEY_TICKETS: "📝-заявки",
+    LOG_KEY_DECISIONS: "⚖️-решения",
+    LOG_KEY_AFK: "🔴-afk",
+    LOG_KEY_CALLS: "🔊-обзвоны",
+    LOG_KEY_STATS: "📊-статистика",
+    LOG_KEY_ERRORS: "🚨-ошибки",
+}
+
+LOG_THREAD_IDS = {
+    LOG_KEY_TICKETS: _int_env("LOG_THREAD_TICKETS_ID"),
+    LOG_KEY_DECISIONS: _int_env("LOG_THREAD_DECISIONS_ID"),
+    LOG_KEY_AFK: _int_env("LOG_THREAD_AFK_ID"),
+    LOG_KEY_CALLS: _int_env("LOG_THREAD_CALLS_ID"),
+    LOG_KEY_STATS: _int_env("LOG_THREAD_STATS_ID"),
+    LOG_KEY_ERRORS: _int_env("LOG_THREAD_ERRORS_ID"),
+}
 
 # Команды
 CMD_PREFIX = "!"
 CMD_REGENT = "regent"
 CMD_STATS = "stats"
 CMD_HISTORY = "history"
+CMD_AFK_REMOVE = "afk_remove"
 
 # Тексты
 DM_MESSAGE = "Вы подали заявку в клуб Regent, ожидайте — скоро её рассмотрят ⏳."
@@ -53,7 +125,7 @@ RP_FIELDS = [
     ("Семьи в которых вы состояли", "Перечислите все семьи, и почему ушли?", True, 300),
     ("Почему именно наша семья", "Потомучто ...", True, 500),
     (
-        "Средний онлайн в день (Пример:5 часов - 12:00-17:00)",
+        "Средний онлайн в день (пример: 12:00-17:00)",
         "Сколько часов играете / в какое время",
         True,
         100,
@@ -72,6 +144,14 @@ ACCEPT_EMBED_TITLE = "✅ Заявка принята, добро пожалов
 DENY_EMBED_TITLE = "❌ Заявка отклонена"
 
 ERROR_TICKET_CREATE = "Не удалось создать заявку. Попробуйте позже."
+
+# Тикеты: модерация и уведомления заявителя
+TICKET_NO_PERMISSION = "⛔ Обрабатывать заявки могут только модераторы."
+TICKET_ALREADY_DECIDED = "⚠️ Этот тикет уже обработан."
+TICKET_CLOSED_LOG_TITLE = "🔒 Тикет закрыт"
+DM_TICKET_ACCEPTED = "🎉 Ваша заявка принята! Добро пожаловать в семью."
+DM_TICKET_DENIED = "❌ Ваша заявка отклонена. Причина: {reason}"
+DM_TICKET_CLOSED = "🔒 Ваш тикет закрыт модератором. Если вопрос остался — создайте новый."
 
 # AFK Система
 AFK_EMBED_TITLE = "🔴 AFK Система"
@@ -122,3 +202,45 @@ AFK_VOICE_RETURN_DESC = "🟢 Пользователь вернулся из AFK
 
 AFK_COOLDOWN_SECONDS = 30
 AFK_NICK_PREFIX = "[AFK] "
+
+# Авто-снятие AFK по истечении времени (фоновая задача)
+AFK_EXPIRY_CHECK_SECONDS = int(os.getenv("AFK_EXPIRY_CHECK_SECONDS", "60"))
+AFK_EXPIRED_DM = "⏰ Ваш AFK на сервере {guild} истёк — вы снова в строю."
+
+# Логи AFK в лог-центр
+AFK_LOG_SET_TITLE = "🔴 AFK установлен"
+AFK_LOG_REMOVED_TITLE = "🟢 AFK снят"
+AFK_LOG_EXPIRED_TITLE = "⏰ AFK истёк"
+
+# Модераторское снятие AFK (команда !afk_remove)
+AFK_NO_PERMISSION = "⛔ Снимать AFK у других могут только модераторы."
+AFK_GUILD_ONLY = "AFK-меню работает только на сервере."
+
+# Поля эмбеда !afk_check
+AFK_FIELD_STATUS = "Статус"
+AFK_FIELD_REASON = "Причина"
+AFK_FIELD_LEFT = "Ушёл"
+AFK_FIELD_DURATION = "Время в AFK"
+
+
+def validate() -> list:
+    """Проверяет конфиг по жёстким лимитам Discord перед запуском.
+
+    Возвращает список найденных ошибок (пустой = всё ок).
+    """
+    errors = []
+
+    for name, fields in (("RP_FIELDS", RP_FIELDS), ("CAPT_FIELDS", CAPT_FIELDS)):
+        if len(fields) > 5:
+            errors.append(f"{name}: полей {len(fields)}, а модалка вмещает максимум 5")
+        for label, *_ in fields:
+            if len(label) > 45:
+                errors.append(f"{name}: label «{label[:30]}…» длиной {len(label)} > 45 символов")
+
+    if not TICKET_RP_TITLE or not TICKET_CAPT_TITLE:
+        errors.append("Заголовки форм заявок не должны быть пустыми")
+
+    if AFK_EXPIRY_CHECK_SECONDS < 10:
+        errors.append("AFK_EXPIRY_CHECK_SECONDS слишком мал (< 10 сек)")
+
+    return errors
