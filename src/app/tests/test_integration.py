@@ -162,23 +162,22 @@ class TestIntegrationAfkFlow(unittest.IsolatedAsyncioTestCase):
 
 
 class TestIntegrationBotLifecycle(unittest.IsolatedAsyncioTestCase):
-    """Интеграция: запуск бота → тесты → on_ready → загрузка когов"""
+    """Интеграция: запуск бота → setup_hook → загрузка когов и views"""
 
-    async def test_on_ready_loads_extensions(self):
+    async def test_setup_hook_loads_extensions(self):
         import main as main_module
 
-        bot = MagicMock()
-        bot.user = "Regent Bot#8681"
-        bot.load_extension = AsyncMock()
-        main_module.bot = bot
-
-        with patch("main.init_db") as mock_init, patch("main.init_afk_db"):
-            with patch("main.logger"):
-                await main_module.on_ready()
+        with patch("main.init_db") as mock_init, patch("main.init_afk_db") as mock_afk:
+            with patch.object(
+                main_module.bot, "load_extension", new_callable=AsyncMock
+            ) as mock_load:
+                with patch.object(main_module.bot, "add_view"):
+                    await main_module.bot.setup_hook()
 
         mock_init.assert_called_once()
-        bot.load_extension.assert_any_call("tickets")
-        bot.load_extension.assert_any_call("afk")
+        mock_afk.assert_called_once()
+        mock_load.assert_any_await("tickets")
+        mock_load.assert_any_await("afk")
 
 
 if __name__ == "__main__":

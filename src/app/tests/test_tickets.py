@@ -7,7 +7,8 @@ import discord
 import config
 from tickets.call_voice import VoiceCallButton, VoiceSelectView
 from tickets.close_ticket import CloseButton
-from tickets.create_ticket import TicketModal, create_ticket
+from tickets.commands import TicketTypeView
+from tickets.create_ticket import TicketModal, create_ticket, sanitize_channel_name
 from tickets.decision import ACCEPT, DENY, AcceptButton, DecisionReasonModal, DenyButton
 from tickets.views import FullTicketView
 
@@ -130,6 +131,47 @@ class TestModals(unittest.TestCase):
         self.assertEqual(modal.title, "Отклонение заявки")
         self.assertEqual(len(modal.children), 1)
         self.assertEqual(modal.children[0].label, "Причина отказа")
+
+
+class TestPersistentButtons(unittest.TestCase):
+    # у кнопок должны быть custom_id, иначе после перезапуска они перестанут работать
+    def test_ticket_type_view_buttons_have_custom_ids(self):
+        view = TicketTypeView()
+        for btn in view.children:
+            self.assertTrue(btn.custom_id)
+
+    def test_full_ticket_view_buttons_have_custom_ids(self):
+        view = FullTicketView()
+        self.assertEqual(len(view.children), 4)
+        for btn in view.children:
+            self.assertTrue(btn.custom_id)
+
+    def test_afk_menu_view_buttons_have_custom_ids(self):
+        from afk.views import AfkMenuView
+
+        view = AfkMenuView()
+        for btn in view.children:
+            self.assertTrue(btn.custom_id)
+
+
+class TestSanitizeChannelName(unittest.TestCase):
+    def test_basic(self):
+        self.assertEqual(sanitize_channel_name("player_one"), "player_one")
+
+    def test_uppercase_and_spaces(self):
+        self.assertEqual(sanitize_channel_name("Player One"), "player-one")
+
+    def test_strips_special_chars(self):
+        self.assertEqual(sanitize_channel_name("Pl@yer! #$"), "plyer")
+
+    def test_cyrillic_kept(self):
+        self.assertEqual(sanitize_channel_name("Игрок Один"), "игрок-один")
+
+    def test_empty_becomes_default(self):
+        self.assertEqual(sanitize_channel_name("!!!"), "user")
+
+    def test_length_capped(self):
+        self.assertEqual(len(sanitize_channel_name("a" * 200)), 90)
 
 
 if __name__ == "__main__":

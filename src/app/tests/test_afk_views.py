@@ -66,6 +66,19 @@ class TestParseReturnTime(unittest.TestCase):
         result = parse_return_time(future_time)
         self.assertIsNotNone(result)
 
+    def test_invalid_minutes_rejected(self):
+        self.assertIsNone(parse_return_time("23:99"))
+
+    def test_suffix_not_matched_inside_words(self):
+        # «вечера» не должно читаться как «4 часа» только из-за буквы «ч»
+        self.assertIsNone(parse_return_time("в 4 вечера"))
+
+    def test_number_attached_to_unit(self):
+        self.assertIsNotNone(parse_return_time("2часа"))
+
+    def test_plain_number_without_unit(self):
+        self.assertIsNone(parse_return_time("30"))
+
 
 class TestBuildAfkEmbed(unittest.TestCase):
     def test_empty_afk_list(self):
@@ -287,10 +300,11 @@ class TestAfkReturnViewButtons(unittest.IsolatedAsyncioTestCase):
         interaction.response = MagicMock()
         interaction.response.edit_message = AsyncMock()
 
-        with patch("afk.models.remove_afk") as mock_remove:
-            with patch("afk.models.remove_afk_nickname"):
-                mock_remove.return_value = 3600
-                await view.confirm.callback(interaction)
+        with patch("afk.models.get_afk_user", return_value=None):
+            with patch("afk.models.remove_afk") as mock_remove:
+                with patch("afk.models.remove_afk_nickname"):
+                    mock_remove.return_value = 3600
+                    await view.confirm.callback(interaction)
 
         interaction.response.edit_message.assert_called_once()
 
@@ -304,9 +318,10 @@ class TestAfkReturnViewButtons(unittest.IsolatedAsyncioTestCase):
         interaction.response = MagicMock()
         interaction.response.send_message = AsyncMock()
 
-        with patch("afk.models.remove_afk") as mock_remove:
-            mock_remove.return_value = None
-            await view.confirm.callback(interaction)
+        with patch("afk.models.get_afk_user", return_value=None):
+            with patch("afk.models.remove_afk") as mock_remove:
+                mock_remove.return_value = None
+                await view.confirm.callback(interaction)
 
         interaction.response.send_message.assert_called_once()
 

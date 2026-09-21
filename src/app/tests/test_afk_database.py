@@ -174,6 +174,69 @@ class TestAfkDatabase(unittest.TestCase):
         user = self.db.get_afk_user(123, 456)
         self.assertIsNone(user["estimated_return"])
 
+    def test_set_afk_saves_original_nick(self):
+        self.db.set_afk(123, 456, "reason", "2024-01-01T00:00:00", None, "Ориг Ник")
+        user = self.db.get_afk_user(123, 456)
+        self.assertEqual(user["original_nick"], "Ориг Ник")
+
+    def test_set_afk_original_nick_default_none(self):
+        self.db.set_afk(123, 456, "reason", "2024-01-01T00:00:00")
+        user = self.db.get_afk_user(123, 456)
+        self.assertIsNone(user["original_nick"])
+
+    def test_cleanup_cooldowns_removes_old(self):
+        self.db.set_cooldown(1, 2)
+        conn = db_module.get_db()
+        conn.execute("UPDATE afk_cooldown SET last_reply = '2020-01-01T00:00:00'")
+        conn.commit()
+        conn.close()
+
+        removed = self.db.cleanup_cooldowns("2024-01-01T00:00:00")
+        self.assertEqual(removed, 1)
+
+    def test_cleanup_cooldowns_keeps_fresh(self):
+        self.db.set_cooldown(1, 2)
+        removed = self.db.cleanup_cooldowns("2020-01-01T00:00:00")
+        self.assertEqual(removed, 0)
+
+
+class TestGetExpiredAfk(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self.temp.close()
+        config.DB_PATH = self.temp.name
+        importlib.reload(db_module)
+        importlib.reload(afk_module)
+        self.db = afk_module
+        self.db.init_afk_db()
+
+    def tearDown(self):
+        try:
+            os.unlink(self.temp.name)
+        except OSError:
+            pass
+
+    def test_returns_only_expired(self):
+        self.db.set_afk(1, 456, "r", "2020-01-01T00:00:00", "2020-01-01T01:00:00")
+        self.db.set_afk(2, 456, "r", "2020-01-01T00:00:00", "2099-01-01T00:00:00")
+        rows = self.db.get_expired_afk(456, "2024-01-01T00:00:00")
+        self.assertEqual([r["user_id"] for r in rows], [1])
+
+    def test_skips_rows_without_return_time(self):
+        self.db.set_afk(1, 456, "r", "2020-01-01T00:00:00")
+        rows = self.db.get_expired_afk(456, "2024-01-01T00:00:00")
+        self.assertEqual(rows, [])
+
+    def test_isolated_by_guild(self):
+        self.db.set_afk(1, 456, "r", "2020-01-01T00:00:00", "2020-01-01T01:00:00")
+        self.db.set_afk(2, 789, "r", "2020-01-01T00:00:00", "2020-01-01T01:00:00")
+        rows = self.db.get_expired_afk(456, "2024-01-01T00:00:00")
+        self.assertEqual([r["user_id"] for r in rows], [1])
+
+    def test_empty_when_nothing_afk(self):
+        rows = self.db.get_expired_afk(456, "2024-01-01T00:00:00")
+        self.assertEqual(rows, [])
+
 
 if __name__ == "__main__":
     unittest.main()

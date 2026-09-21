@@ -13,13 +13,13 @@ class TestAfkEvents(unittest.TestCase):
         self.bot.process_commands = AsyncMock()
         setup_afk_events(self.bot)
         self.on_message = self.bot.event.call_args_list[0][0][0]
-        self.on_voice = self.bot.event.call_args_list[1][0][0]
 
     def tearDown(self):
         self.loop.close()
 
     def test_events_registered(self):
-        self.assertEqual(self.bot.event.call_count, 2)
+        # Только on_message: сообщения и голос не должны снимать AFK
+        self.assertEqual(self.bot.event.call_count, 1)
 
 
 class TestOnMessageEvent(unittest.TestCase):
@@ -53,6 +53,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.author.bot = False
         message.guild = MagicMock()
         message.guild.id = 123
+        message.content = "привет"
         message.mentions = []
 
         self.loop.run_until_complete(self.on_message(message))
@@ -63,6 +64,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.author.bot = False
         message.guild = MagicMock()
         message.guild.id = 123
+        message.content = "привет"
         message.author.id = 100
         message.mentions = [MagicMock()]
         message.mentions[0].id = 200
@@ -80,6 +82,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.author.bot = False
         message.guild = MagicMock()
         message.guild.id = 123
+        message.content = "привет"
         message.author.id = 100
         mention = MagicMock()
         mention.id = 200
@@ -103,6 +106,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.author.bot = False
         message.guild = MagicMock()
         message.guild.id = 123
+        message.content = "привет"
         message.author.id = 100
         mention = MagicMock()
         mention.id = 200
@@ -125,6 +129,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.author.bot = False
         message.guild = MagicMock()
         message.guild.id = 123
+        message.content = "привет"
         message.author.id = 100
         mention1 = MagicMock()
         mention1.id = 200
@@ -144,138 +149,66 @@ class TestOnMessageEvent(unittest.TestCase):
 
         self.assertEqual(message.channel.send.call_count, 2)
 
+    def test_command_message_skips_afk_reply(self):
+        message = MagicMock()
+        message.author.bot = False
+        message.guild = MagicMock()
+        message.guild.id = 123
+        message.content = "!afk_check <@200>"
+        message.author.id = 100
+        mention = MagicMock()
+        mention.id = 200
+        message.mentions = [mention]
+        message.channel = MagicMock()
+        message.channel.send = AsyncMock()
 
-class TestOnVoiceStateUpdate(unittest.TestCase):
+        with patch("afk.events.get_afk_user") as mock_get:
+            mock_get.return_value = {"afk_since": "2024-01-01T10:00:00", "afk_reason": "test"}
+            self.loop.run_until_complete(self.on_message(message))
+
+        # автоответа нет, но команда обрабатывается
+        message.channel.send.assert_not_called()
+        self.bot.process_commands.assert_called_once()
+
+
+class TestActivityDoesNotRemoveAfk(unittest.TestCase):
+    """По спецификации активность (чат, голос) НЕ снимает AFK:
+
+    статус держится, пока не истечёт время или пока его не снимет
+    модератор / сам пользователь через меню.
+    """
+
     def setUp(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.bot = MagicMock()
         self.bot.process_commands = AsyncMock()
-        setup_afk_events(self.bot)
-        self.on_voice = self.bot.event.call_args_list[1][0][0]
 
     def tearDown(self):
         self.loop.close()
 
-    def test_join_voice_not_afk(self):
-        member = MagicMock()
-        member.id = 456
-        member.guild = MagicMock()
-        member.guild.id = 123
-        member.guild.system_channel = None
-        member.guild.text_channels = []
+    def test_no_voice_handler_registered(self):
+        setup_afk_events(self.bot)
+        self.assertEqual(self.bot.event.call_count, 1)
 
-        before = MagicMock()
-        before.channel = None
-        after = MagicMock()
-        after.channel = MagicMock()
+    def test_message_from_afk_author_does_not_remove_afk(self):
+        setup_afk_events(self.bot)
+        on_message = self.bot.event.call_args_list[0][0][0]
 
-        with patch("afk.events.get_afk_user") as mock_get:
-            mock_get.return_value = None
-            self.loop.run_until_complete(self.on_voice(member, before, after))
-
-    def test_join_voice_is_afk(self):
-        member = MagicMock()
-        member.id = 456
-        member.display_name = "TestUser"
-        member.guild = MagicMock()
-        member.guild.id = 123
-        channel = MagicMock()
-        channel.send = AsyncMock()
-        member.guild.system_channel = channel
-        member.guild.text_channels = []
-
-        before = MagicMock()
-        before.channel = None
-        after = MagicMock()
-        after.channel = MagicMock()
+        message = MagicMock()
+        message.author.bot = False
+        message.author.id = 200  # сам автор в AFK
+        message.guild = MagicMock()
+        message.guild.id = 123
+        message.content = "привет"
+        message.mentions = []
 
         with patch("afk.events.get_afk_user") as mock_get:
-            with patch("afk.events.remove_afk") as mock_remove:
-                with patch("afk.events.remove_afk_nickname") as mock_nick:
-                    mock_get.return_value = {"afk_since": "2024-01-01T10:00:00"}
-                    self.loop.run_until_complete(self.on_voice(member, before, after))
+            self.loop.run_until_complete(on_message(message))
 
-        channel.send.assert_called_once()
-        mock_remove.assert_called_once()
-        mock_nick.assert_called_once()
-
-    def test_leave_voice_ignored(self):
-        member = MagicMock()
-        member.id = 456
-        member.guild = MagicMock()
-        member.guild.id = 123
-
-        before = MagicMock()
-        before.channel = MagicMock()
-        after = MagicMock()
-        after.channel = None
-
-        with patch("afk.events.get_afk_user") as mock_get:
-            mock_get.return_value = None
-            self.loop.run_until_complete(self.on_voice(member, before, after))
-
-    def test_move_voice_ignored(self):
-        member = MagicMock()
-        member.id = 456
-        member.guild = MagicMock()
-        member.guild.id = 123
-
-        before = MagicMock()
-        before.channel = MagicMock()
-        after = MagicMock()
-        after.channel = MagicMock()
-
-        with patch("afk.events.get_afk_user") as mock_get:
-            mock_get.return_value = None
-            self.loop.run_until_complete(self.on_voice(member, before, after))
-
-    def test_no_system_channel_uses_first_text(self):
-        member = MagicMock()
-        member.id = 456
-        member.display_name = "TestUser"
-        member.guild = MagicMock()
-        member.guild.id = 123
-        member.guild.system_channel = None
-        channel = MagicMock()
-        channel.send = AsyncMock()
-        member.guild.text_channels = [channel]
-
-        before = MagicMock()
-        before.channel = None
-        after = MagicMock()
-        after.channel = MagicMock()
-
-        with patch("afk.events.get_afk_user") as mock_get:
-            with patch("afk.events.remove_afk"):
-                with patch("afk.events.remove_afk_nickname"):
-                    mock_get.return_value = {"afk_since": "2024-01-01T10:00:00"}
-                    self.loop.run_until_complete(self.on_voice(member, before, after))
-
-        channel.send.assert_called_once()
-
-    def test_no_channels(self):
-        member = MagicMock()
-        member.id = 456
-        member.display_name = "TestUser"
-        member.guild = MagicMock()
-        member.guild.id = 123
-        member.guild.system_channel = None
-        member.guild.text_channels = []
-
-        before = MagicMock()
-        before.channel = None
-        after = MagicMock()
-        after.channel = MagicMock()
-
-        with patch("afk.events.get_afk_user") as mock_get:
-            with patch("afk.events.remove_afk") as mock_remove:
-                with patch("afk.events.remove_afk_nickname") as mock_nick:
-                    mock_get.return_value = {"afk_since": "2024-01-01T10:00:00"}
-                    self.loop.run_until_complete(self.on_voice(member, before, after))
-
-        mock_remove.assert_called_once()
-        mock_nick.assert_called_once()
+        # AFK автора даже не проверяется — активность в чате его не снимает
+        mock_get.assert_not_called()
+        self.bot.process_commands.assert_called_once()
 
 
 if __name__ == "__main__":

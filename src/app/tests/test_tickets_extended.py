@@ -246,14 +246,22 @@ class TestCloseButton(unittest.IsolatedAsyncioTestCase):
     async def test_callback_deletes_channel(self):
         btn = CloseButton()
         interaction = MagicMock()
+        interaction.user.mention = "<@9>"
         interaction.response = MagicMock()
         interaction.response.send_message = AsyncMock()
         interaction.channel = MagicMock()
+        interaction.channel.id = 123
         interaction.channel.delete = AsyncMock()
+        interaction.guild.get_member = MagicMock(return_value=None)
 
-        await btn.callback(interaction)
+        with patch("tickets.close_ticket.get_ticket", return_value=None):
+            with patch("tickets.close_ticket.update_ticket_status") as mock_update:
+                with patch("tickets.close_ticket.send_to_log", new_callable=AsyncMock):
+                    await btn.callback(interaction)
+
         interaction.response.send_message.assert_called_once()
         interaction.channel.delete.assert_called_once()
+        mock_update.assert_called_once()
 
 
 class TestCreateTicketErrors(unittest.IsolatedAsyncioTestCase):

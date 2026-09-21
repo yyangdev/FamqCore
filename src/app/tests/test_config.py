@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import config
 
@@ -153,6 +154,28 @@ class TestConfig(unittest.TestCase):
     def test_afk_nick_prefix(self):
         self.assertIsInstance(config.AFK_NICK_PREFIX, str)
         self.assertEqual(config.AFK_NICK_PREFIX, "[AFK] ")
+
+
+class TestValidate(unittest.TestCase):
+    def test_current_config_valid(self):
+        self.assertEqual(config.validate(), [])
+
+    def test_catches_long_label(self):
+        bad_fields = [("x" * 46, "p", True, 100)]
+        with patch("config.RP_FIELDS", bad_fields):
+            errors = config.validate()
+        self.assertTrue(any("45" in e for e in errors))
+
+    def test_catches_too_many_fields(self):
+        bad_fields = [("f", "p", True, 100)] * 6
+        with patch("config.CAPT_FIELDS", bad_fields):
+            errors = config.validate()
+        self.assertTrue(any("5" in e for e in errors))
+
+    def test_modal_labels_fit_discord_limit(self):
+        for fields in (config.RP_FIELDS, config.CAPT_FIELDS):
+            for label, *_ in fields:
+                self.assertLessEqual(len(label), 45, label)
 
 
 if __name__ == "__main__":
