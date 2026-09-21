@@ -1,13 +1,23 @@
 import json
+import re
 from datetime import datetime
 
 import discord
 
 import config
 from database.tickets_db import save_ticket
+from utils.logcenter import LOG_KEY_TICKETS, send_to_log
 from utils.logger import logger
+from utils.resolve import get_category, get_role
 
 from .views import FullTicketView
+
+
+def sanitize_channel_name(text: str) -> str:
+    """Имя канала из ника игрока: Discord не переваривает пробелы и спецсимволы."""
+    text = re.sub(r"\s+", "-", text.lower().strip())
+    text = re.sub(r"[^a-z0-9а-яё_-]", "", text)
+    return text.strip("-")[:90] or "user"
 
 
 class TicketModal(discord.ui.Modal):
@@ -43,7 +53,7 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
         pass
 
     try:
-        apply_role = discord.utils.get(guild.roles, name=config.ROLE_APPLIED)
+        apply_role = get_role(guild, config.ROLE_APPLIED_ID, config.ROLE_APPLIED)
         if apply_role and apply_role < guild.me.top_role:
             try:
                 await member.add_roles(apply_role)
@@ -56,12 +66,12 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
         except discord.Forbidden:
             pass
 
-        category = discord.utils.get(guild.categories, name=config.TICKETS_CATEGORY_NAME)
+        category = get_category(guild, config.TICKETS_CATEGORY_ID, config.TICKETS_CATEGORY_NAME)
         if not category:
             category = await guild.create_category(config.TICKETS_CATEGORY_NAME)
 
         answers = {label: inp.value for label, inp in inputs.items()}
-        channel_name = f"{ticket_type}-{member.name}".lower()
+        channel_name = f"{ticket_type}-{sanitize_channel_name(member.name)}"
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -69,14 +79,14 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
         }
 
-        for role_name in [
-            config.ROLE_RECRUITER,
-            config.ROLE_OWNER,
-            config.ROLE_DEP_OWNER,
-            config.ROLE_ADMIN,
-            config.ROLE_SUPPORT,
+        for role_id, role_name in [
+            (config.ROLE_RECRUITER_ID, config.ROLE_RECRUITER),
+            (config.ROLE_OWNER_ID, config.ROLE_OWNER),
+            (config.ROLE_DEP_OWNER_ID, config.ROLE_DEP_OWNER),
+            (config.ROLE_ADMIN_ID, config.ROLE_ADMIN),
+            (config.ROLE_SUPPORT_ID, config.ROLE_SUPPORT),
         ]:
-            role = discord.utils.get(guild.roles, name=role_name)
+            role = get_role(guild, role_id, role_name)
             if role:
                 overwrites[role] = discord.PermissionOverwrite(
                     read_messages=True, send_messages=True
@@ -99,17 +109,31 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
         embed = discord.Embed(title=topic, color=discord.Color.gold(), timestamp=datetime.now())
         embed.add_field(name="От кого", value=member.mention, inline=False)
         for label, value in answers.items():
-            embed.add_field(name=label, value=value or "—", inline=False)
+            # field value ограничен 1024 символами у Discord
+            embed.add_field(name=label, value=(value or "—")[:1024], inline=False)
 
         role_mentions = []
-        for role_name in [config.ROLE_RECRUITER, config.ROLE_OWNER, config.ROLE_DEP_OWNER]:
-            role = discord.utils.get(guild.roles, name=role_name)
+        for role_id, role_name in [
+            (config.ROLE_RECRUITER_ID, config.ROLE_RECRUITER),
+            (config.ROLE_OWNER_ID, config.ROLE_OWNER),
+            (config.ROLE_DEP_OWNER_ID, config.ROLE_DEP_OWNER),
+        ]:
+            role = get_role(guild, role_id, role_name)
             if role:
                 role_mentions.append(role.mention)
 
         await channel.send(embed=embed, view=FullTicketView())
         if role_mentions:
             await channel.send(f"{member.mention} {' '.join(role_mentions)}")
+
+        log_embed = discord.Embed(
+            title=f"📥 Новая заявка: {ticket_type}",
+            color=discord.Color.gold(),
+            timestamp=datetime.now(),
+        )
+        log_embed.add_field(name="Заявитель", value=member.mention, inline=True)
+        log_embed.add_field(name="Тикет", value=channel.mention, inline=True)
+        await send_to_log(guild, LOG_KEY_TICKETS, embed=log_embed)
 
         await interaction.edit_original_response(content=f"Заявка создана! {channel.mention}")
         logger.info(f"Заявка {ticket_type} создана для {member.name} в {channel.name}")
