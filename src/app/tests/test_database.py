@@ -1,5 +1,6 @@
 import importlib
 import os
+import sqlite3
 import tempfile
 import unittest
 
@@ -68,6 +69,41 @@ class TestDatabase(unittest.TestCase):
         self.db.update_ticket_status(101, "denied", 301, "no")
         ticket = self.db.get_ticket(101)
         self.assertEqual(ticket["status"], "denied")
+
+    def test_update_ticket_status_returns_true(self):
+        self.db.save_ticket(102, 202, "u", "T", "rp", "{}", "2024-01-01T00:00:00")
+        self.assertTrue(self.db.update_ticket_status(102, "accepted", 300, "ok"))
+
+    def test_update_ticket_status_missing_ticket(self):
+        self.assertFalse(self.db.update_ticket_status(999, "accepted", 300, "ok"))
+
+    def test_update_ticket_status_twice_returns_false(self):
+        self.db.save_ticket(103, 203, "u", "T", "rp", "{}", "2024-01-01T00:00:00")
+        self.assertTrue(self.db.update_ticket_status(103, "accepted", 300, "ok"))
+        self.assertFalse(self.db.update_ticket_status(103, "denied", 300, "no"))
+
+    def test_update_ticket_status_twice_stats_not_doubled(self):
+        self.db.save_ticket(104, 204, "u", "T", "rp", "{}", "2024-01-01T00:00:00")
+        self.db.update_ticket_status(104, "accepted", 300, "ok")
+        self.db.update_ticket_status(104, "accepted", 300, "ok")
+
+        stats = self.db.get_stats()
+        self.assertEqual(stats["accepted"], 1)
+        self.assertEqual(stats["denied"], 0)
+
+    def test_update_ticket_status_closed_not_in_stats(self):
+        self.db.save_ticket(105, 205, "u", "T", "rp", "{}", "2024-01-01T00:00:00")
+        self.assertTrue(self.db.update_ticket_status(105, "closed", 300))
+
+        stats = self.db.get_stats()
+        self.assertEqual(stats["accepted"], 0)
+        self.assertEqual(stats["denied"], 0)
+        self.assertEqual(stats["open"], 0)
+
+    def test_save_ticket_duplicate_channel_raises(self):
+        self.db.save_ticket(106, 206, "u", "T", "rp", "{}", "2024-01-01T00:00:00")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.save_ticket(106, 207, "u2", "T", "rp", "{}", "2024-01-01T00:00:00")
 
     def test_stats_increment(self):
         self.db.save_ticket(1, 10, "a", "T", "rp", "{}", "2024-01-01T00:00:00")

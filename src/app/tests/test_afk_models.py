@@ -45,6 +45,13 @@ class TestAfkModels(unittest.TestCase):
         self.assertIsNotNone(stats)
         self.assertEqual(stats["total_afk_count"], 1)
 
+    def test_set_afk_twice_counts_once(self):
+        # обновление причины у уже стоящего AFK — не новый уход
+        self.models.set_afk(123, 456, "reason")
+        self.models.set_afk(123, 456, "reason2")
+        stats = self.models.get_user_stats(123)
+        self.assertEqual(stats["total_afk_count"], 1)
+
     def test_remove_afk_basic(self):
         self.models.set_afk(123, 456, "reason")
         duration = self.models.remove_afk(123, 456)
