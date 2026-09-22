@@ -45,6 +45,9 @@ class TestTicketsCog(unittest.TestCase):
     def test_history_command_exists(self):
         self.assertTrue(hasattr(self.cog, "show_history"))
 
+    def test_delete_user_data_command_exists(self):
+        self.assertTrue(hasattr(self.cog, "delete_user_data"))
+
 
 class TestRegentCommand(unittest.TestCase):
     def setUp(self):
@@ -94,6 +97,36 @@ class TestStatsCommand(unittest.TestCase):
             self.loop.run_until_complete(self.cog.show_stats.callback(self.cog, ctx))
 
         ctx.send.assert_called_once()
+
+
+class TestDeleteUserDataCommand(unittest.TestCase):
+    def setUp(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.bot = MagicMock()
+        self.cog = TicketsCog(self.bot)
+
+    def tearDown(self):
+        self.loop.close()
+
+    def test_delete_user_data_calls_storage_helpers(self):
+        ctx = MagicMock()
+        ctx.guild.id = 456
+        ctx.send = AsyncMock()
+        member = MagicMock()
+        member.id = 123
+
+        with patch("tickets.commands.anonymize_user_tickets", return_value=2) as mock_tickets:
+            with patch("tickets.commands.delete_afk_user_data") as mock_afk:
+                mock_afk.return_value = {"afk_users": 1, "afk_stats": 1, "afk_cooldown": 3}
+                self.loop.run_until_complete(
+                    self.cog.delete_user_data.callback(self.cog, ctx, member)
+                )
+
+        mock_tickets.assert_called_once_with(456, 123)
+        mock_afk.assert_called_once_with(123, 456)
+        ctx.send.assert_called_once()
+        self.assertIn("тикеты анонимизированы", ctx.send.call_args.args[0])
 
 
 class TestHistoryCommand(unittest.TestCase):

@@ -65,6 +65,8 @@ ID смотрятся так: Discord → Настройки → Расшире�
 | `CMD_REGENT` | `regent` | Панель подачи заявки |
 | `CMD_STATS` | `stats` | Статистика заявок |
 | `CMD_HISTORY` | `history` | История заявок |
+| `CMD_AFK_REMOVE` | `afk_remove` | Модераторское снятие AFK |
+| `CMD_DELETE_USER_DATA` | `delete_user_data` | Анонимизация тикетов и удаление AFK-данных пользователя |
 
 ### Тексты заявок
 

@@ -130,6 +130,134 @@ class TestDatabase(unittest.TestCase):
         results = self.db.get_all_tickets(limit=10)
         self.assertEqual(results[0]["channel_id"], 1)
 
+    def test_schema_version_is_recorded(self):
+        conn = db_module.get_db()
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        conn.close()
+        self.assertGreaterEqual(version, 2)
+
+    def test_ticket_stats_are_guild_scoped(self):
+        self.db.save_ticket(10, 100, "a", "T", "rp", "{}", "2024-01-01T00:00:00", guild_id=1)
+        self.db.save_ticket(20, 100, "a", "T", "rp", "{}", "2024-01-01T00:00:00", guild_id=2)
+        self.db.update_ticket_status(10, "accepted", 300, "ok")
+
+        guild_one = self.db.get_stats(1)
+        guild_two = self.db.get_stats(2)
+
+        self.assertEqual(guild_one["total"], 1)
+        self.assertEqual(guild_one["accepted"], 1)
+        self.assertEqual(guild_two["total"], 1)
+        self.assertEqual(guild_two["accepted"], 0)
+        self.assertEqual(guild_two["open"], 1)
+
+    def test_open_ticket_unique_per_user_and_guild(self):
+        self.db.save_ticket(30, 100, "a", "T", "rp", "{}", "2024-01-01T00:00:00", guild_id=1)
+        self.db.save_ticket(31, 100, "a", "T", "rp", "{}", "2024-01-01T00:00:00", guild_id=2)
+
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.db.save_ticket(
+                32,
+                100,
+                "a",
+                "T",
+                "rp",
+                "{}",
+                "2024-01-01T00:00:00",
+                guild_id=1,
+            )
+
+    def test_anonymize_user_tickets_only_current_guild(self):
+        self.db.save_ticket(
+            40, 100, "a", "T", "rp", '{"name":"secret"}', "2024-01-01T00:00:00", guild_id=1
+        )
+        self.db.save_ticket(
+            41, 100, "a", "T", "rp", '{"name":"secret"}', "2024-01-01T00:00:00", guild_id=2
+        )
+
+        changed = self.db.anonymize_user_tickets(1, 100)
+
+        first = self.db.get_ticket(40)
+        second = self.db.get_ticket(41)
+        self.assertEqual(changed, 1)
+        self.assertEqual(first["user_id"], 0)
+        self.assertEqual(first["answers"], "{}")
+        self.assertEqual(second["user_id"], 100)
+
+
+class TestDatabaseMigrations(unittest.TestCase):
+    def test_old_schema_migrates_without_losing_rows(self):
+        temp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        temp.close()
+        old_path = config.DB_PATH
+        config.DB_PATH = temp.name
+        try:
+            conn = sqlite3.connect(temp.name)
+            conn.execute(
+                """
+                CREATE TABLE tickets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    channel_id INTEGER UNIQUE,
+                    user_id INTEGER NOT NULL,
+                    user_name TEXT,
+                    topic TEXT NOT NULL,
+                    type TEXT,
+                    answers TEXT,
+                    status TEXT DEFAULT 'open',
+                    created_at TEXT NOT NULL,
+                    closed_at TEXT,
+                    closed_by INTEGER,
+                    reason TEXT
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO tickets (channel_id, user_id, user_name, topic, type, answers, created_at, status)
+                VALUES (900, 901, 'legacy', 'T', 'rp', '{}', '2024-01-01T00:00:00', 'open')
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE afk_stats (
+                    user_id INTEGER PRIMARY KEY,
+                    total_afk_count INTEGER DEFAULT 0,
+                    total_afk_seconds INTEGER DEFAULT 0,
+                    longest_afk_seconds INTEGER DEFAULT 0
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO afk_stats (user_id, total_afk_count, total_afk_seconds, longest_afk_seconds)
+                VALUES (901, 2, 30, 20)
+                """
+            )
+            conn.commit()
+            conn.close()
+
+            import database.migrations as migrations
+
+            importlib.reload(db_module)
+            importlib.reload(migrations)
+            migrations.migrate_schema()
+
+            conn = db_module.get_db()
+            ticket = conn.execute("SELECT * FROM tickets WHERE channel_id = 900").fetchone()
+            stats = conn.execute("SELECT * FROM afk_stats WHERE user_id = 901").fetchone()
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+            conn.close()
+
+            self.assertEqual(ticket["guild_id"], 0)
+            self.assertEqual(stats["guild_id"], 0)
+            self.assertEqual(stats["total_afk_count"], 2)
+            self.assertGreaterEqual(version, 2)
+        finally:
+            config.DB_PATH = old_path
+            try:
+                os.unlink(temp.name)
+            except OSError:
+                pass
+
 
 if __name__ == "__main__":
     unittest.main()

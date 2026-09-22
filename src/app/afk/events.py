@@ -33,7 +33,7 @@ def setup_afk_events(bot: commands.Bot):
         if not message.content.startswith(config.CMD_PREFIX):
             for entity in message.mentions:
                 row = get_afk_user(entity.id, guild_id)
-                if not row or not check_and_reply(message.author.id, entity.id):
+                if not row or not check_and_reply(message.author.id, entity.id, guild_id):
                     continue
 
                 afk_since = datetime.fromisoformat(row["afk_since"])

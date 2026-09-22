@@ -38,7 +38,7 @@ def set_afk(user_id, guild_id, reason, estimated_return=None, original_nick=None
     db_set_afk(user_id, guild_id, reason, now, estimated_return, original_nick)
     # обновление причины у уже стоящего AFK — не новый уход, статистику не плюсуем
     if not was_afk:
-        update_stats_on_set(user_id)
+        update_stats_on_set(user_id, guild_id)
 
 
 def remove_afk(user_id, guild_id):
@@ -48,7 +48,7 @@ def remove_afk(user_id, guild_id):
     afk_since = datetime.fromisoformat(row["afk_since"])
     duration = int((datetime.now() - afk_since).total_seconds())
     db_remove_afk(user_id, guild_id)
-    update_stats_on_remove(user_id, duration)
+    update_stats_on_remove(user_id, duration, guild_id)
     return duration
 
 
@@ -61,15 +61,20 @@ def get_all_afk(guild_id):
     return [dict(row) for row in db_get_all_afk(guild_id)]
 
 
-def check_and_reply(mentioner_id, afk_user_id):
-    if db_check_cooldown(mentioner_id, afk_user_id, config.AFK_COOLDOWN_SECONDS):
-        db_set_cooldown(mentioner_id, afk_user_id)
+def check_and_reply(mentioner_id, afk_user_id, guild_id=0):
+    if db_check_cooldown(
+        mentioner_id,
+        afk_user_id,
+        config.AFK_COOLDOWN_SECONDS,
+        guild_id=guild_id,
+    ):
+        db_set_cooldown(mentioner_id, afk_user_id, guild_id)
         return True
     return False
 
 
-def get_user_stats(user_id):
-    row = db_get_user_stats(user_id)
+def get_user_stats(user_id, guild_id=None):
+    row = db_get_user_stats(user_id, guild_id)
     return dict(row) if row else None
 
 
