@@ -20,6 +20,7 @@ from utils.logger import logger
 from .models import format_duration, remove_afk, remove_afk_nickname
 
 _started = False
+_expiry_task = None
 
 
 async def expire_afk_once(bot) -> int:
@@ -82,9 +83,18 @@ async def expire_afk_once(bot) -> int:
     return expired_total
 
 
+def stop_expiry_loop():
+    """Останавливает фоновый цикл перед закрытием gateway."""
+    global _started, _expiry_task
+    if _expiry_task is not None:
+        _expiry_task.cancel()
+        _expiry_task = None
+    _started = False
+
+
 def start_expiry_loop(bot):
     """Запускает периодическую проверку истёкших AFK. Повторный вызов игнорируется."""
-    global _started
+    global _started, _expiry_task
     if _started:
         logger.warning("AFK-expiry: цикл уже запущен, пропускаю повторный запуск")
         return
@@ -103,6 +113,7 @@ def start_expiry_loop(bot):
         await bot.wait_until_ready()
 
     _expiry_loop.start()
+    _expiry_task = _expiry_loop
     _started = True
     logger.info(
         f"AFK-expiry: запущен цикл авто-снятия, интервал {config.AFK_EXPIRY_CHECK_SECONDS} сек"

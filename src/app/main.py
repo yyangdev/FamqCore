@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 
 import config
+from afk.tasks import stop_expiry_loop
 from afk.views import AfkMenuView
 from database import init_afk_db, init_db
 from tickets.commands import TicketTypeView
@@ -15,6 +16,11 @@ intents.members = True
 
 
 class RegentBot(commands.Bot):
+    async def close(self):
+        logger.info("Остановка бота: завершаю фоновые задачи")
+        stop_expiry_loop()
+        await super().close()
+
     async def setup_hook(self):
         # setup_hook вызывается один раз при старте; on_ready — при каждом
         # переподключении, поэтому загрузка расширений живёт только здесь

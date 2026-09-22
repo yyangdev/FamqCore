@@ -65,6 +65,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.guild = MagicMock()
         message.guild.id = 123
         message.content = "привет"
+        message.reference = None
         message.author.id = 100
         message.mentions = [MagicMock()]
         message.mentions[0].id = 200
@@ -83,6 +84,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.guild = MagicMock()
         message.guild.id = 123
         message.content = "привет"
+        message.reference = None
         message.author.id = 100
         mention = MagicMock()
         mention.id = 200
@@ -107,6 +109,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.guild = MagicMock()
         message.guild.id = 123
         message.content = "привет"
+        message.reference = None
         message.author.id = 100
         mention = MagicMock()
         mention.id = 200
@@ -130,6 +133,7 @@ class TestOnMessageEvent(unittest.TestCase):
         message.guild = MagicMock()
         message.guild.id = 123
         message.content = "привет"
+        message.reference = None
         message.author.id = 100
         mention1 = MagicMock()
         mention1.id = 200
@@ -147,7 +151,7 @@ class TestOnMessageEvent(unittest.TestCase):
                 mock_check.return_value = True
                 self.loop.run_until_complete(self.on_message(message))
 
-        self.assertEqual(message.channel.send.call_count, 2)
+        self.assertEqual(message.channel.send.call_count, 1)
 
     def test_command_message_skips_afk_reply(self):
         message = MagicMock()

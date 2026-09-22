@@ -86,6 +86,34 @@ class AfkReturnView(discord.ui.View):
         self.guild_id = guild_id
         self.duration_text = duration_text
 
+    async def on_timeout(self):
+        self.stop()
+        message = getattr(self, "message", None)
+        if message is not None:
+            try:
+                await message.edit(view=None)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                pass
+
+    async def on_error(self, interaction, error, item):
+        from utils.logger import logger
+
+        logger.error(
+            "Ошибка AFK interaction",
+            exc_info=(type(error), error, error.__traceback__),
+        )
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(
+                    "Произошла ошибка. Попробуйте ещё раз.", ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    "Произошла ошибка. Попробуйте ещё раз.", ephemeral=True
+                )
+        except discord.HTTPException:
+            pass
+
     @discord.ui.button(label=config.AFK_BUTTON_RETURN, style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.member.id:
@@ -100,9 +128,18 @@ class AfkReturnView(discord.ui.View):
             await interaction.response.send_message(config.AFK_RETURN_ERROR, ephemeral=True)
             return
 
-        await remove_afk_nickname(self.member, row.get("original_nick") if row else None)
+        nickname_updated = await remove_afk_nickname(
+            self.member, row.get("original_nick") if row else None
+        )
         await interaction.response.edit_message(
-            content=f"{config.AFK_RETURN_SUCCESS} Отсутствовали: {self.duration_text}.",
+            content=(
+                f"{config.AFK_RETURN_SUCCESS} Отсутствовали: {self.duration_text}."
+                + (
+                    "\n⚠️ Не удалось обновить ник — проверьте права бота."
+                    if not nickname_updated
+                    else ""
+                )
+            ),
             embed=None,
             view=None,
         )
@@ -164,9 +201,12 @@ class AfkSetModal(discord.ui.Modal, title=config.AFK_MODAL_TITLE):
 
         estimated_return = parsed.isoformat()
         set_afk(self.member.id, self.guild_id, reason, estimated_return, self.member.nick)
-        await add_afk_nickname(self.member)
+        nickname_updated = await add_afk_nickname(self.member)
+        nickname_warning = (
+            "\n⚠️ Не удалось обновить ник — проверьте права бота." if not nickname_updated else ""
+        )
         await interaction.response.send_message(
-            f"🔴 Вы в AFK.\nПричина: {reason}\nВернётесь: <t:{int(parsed.timestamp())}:R>",
+            f"🔴 Вы в AFK.\nПричина: {reason}\nВернётесь: <t:{int(parsed.timestamp())}:R>{nickname_warning}",
             ephemeral=True,
         )
 
