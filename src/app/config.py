@@ -100,6 +100,14 @@ CMD_REGENT = "regent"
 CMD_STATS = "stats"
 CMD_HISTORY = "history"
 CMD_AFK_REMOVE = "afk_remove"
+CMD_DELETE_USER_DATA = "delete_user_data"
+
+# Rate limits (commands.cooldown): значения в секундах.
+REGENT_COMMAND_COOLDOWN_SECONDS = 30
+AFK_COMMAND_COOLDOWN_SECONDS = 10
+AFK_LIST_COOLDOWN_SECONDS = 10
+AFK_LOOKUP_COOLDOWN_SECONDS = 10
+TICKET_BUTTON_COOLDOWN_SECONDS = 5
 
 # Тексты
 DM_MESSAGE = "Вы подали заявку в клуб Regent, ожидайте — скоро её рассмотрят ⏳."
@@ -108,6 +116,12 @@ TICKET_RP_TITLE = "RP ЗАЯВКА"
 TICKET_CAPT_TITLE = "CAPT ЗАЯВКА"
 
 REGENT_EMBED_TITLE = "Regent FamQ"
+PRIVACY_NOTICE = (
+    "Отправляя заявку, вы соглашаетесь, что ответы формы и сообщения тикета "
+    "сохраняются для рассмотрения администрацией этого Discord-сервера. "
+    "Удаление или анонимизацию можно запросить у администратора."
+)
+
 REGENT_EMBED_DESCRIPTION = (
     "Заявка в Regent FamQ\n\n"
     "Заявки рассматриваются только на сервере Orlando.\n"
@@ -117,7 +131,8 @@ REGENT_EMBED_DESCRIPTION = (
     "**Требования к откатам:**\n"
     "Арена — не более 1 недели (не менее 5 минут).\n"
     "Откаты каптов и MCL — не более 60 дней (по желанию).\n"
-    "**Нарушение условий = автоматический отказ.**"
+    "**Нарушение условий = автоматический отказ.**\n\n"
+    f"**Данные:** {PRIVACY_NOTICE}"
 )
 RP_FIELDS = [
     ("Никнейм в игре + статик", "Ваш игровой ник и статик", True, 100),
@@ -158,6 +173,7 @@ ERROR_TICKET_CREATE = "Не удалось создать заявку. Попр
 # Тикеты: модерация и уведомления заявителя
 TICKET_NO_PERMISSION = "⛔ Обрабатывать заявки могут только модераторы."
 TICKET_ALREADY_DECIDED = "⚠️ Этот тикет уже обработан."
+TICKET_ALREADY_OPEN = "⚠️ У вас уже есть открытая заявка: {channel}"
 TICKET_CLOSED_LOG_TITLE = "🔒 Тикет закрыт"
 DM_TICKET_ACCEPTED = "🎉 Ваша заявка принята! Добро пожаловать в семью."
 DM_TICKET_DENIED = "❌ Ваша заявка отклонена. Причина: {reason}"
@@ -225,6 +241,10 @@ AFK_LOG_EXPIRED_TITLE = "⏰ AFK истёк"
 # Модераторское снятие AFK (команда !afk_remove)
 AFK_NO_PERMISSION = "⛔ Снимать AFK у других могут только модераторы."
 AFK_GUILD_ONLY = "AFK-меню работает только на сервере."
+PRIVACY_DELETE_DONE = (
+    "✅ Данные пользователя очищены: тикеты анонимизированы — {tickets}, "
+    "AFK-записи — {afk_users}, AFK-статистика — {afk_stats}, кулдауны — {afk_cooldown}."
+)
 
 # Поля эмбеда !afk_check
 AFK_FIELD_STATUS = "Статус"

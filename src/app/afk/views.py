@@ -5,6 +5,7 @@ import discord
 
 import config
 from utils.logcenter import LOG_KEY_AFK, send_to_log
+from utils.ratelimit import retry_after
 
 
 def parse_return_time(text: str):
@@ -192,6 +193,22 @@ class AfkMenuView(discord.ui.View):
             return False
         return True
 
+    async def _check_button_cooldown(self, interaction: discord.Interaction, action: str) -> bool:
+        guild_id = getattr(interaction, "guild_id", None)
+        user_id = getattr(getattr(interaction, "user", None), "id", None)
+        if not isinstance(guild_id, int) or not isinstance(user_id, int):
+            return True
+        wait = retry_after(
+            ("afk_button", action, guild_id, user_id), config.AFK_COMMAND_COOLDOWN_SECONDS
+        )
+        if wait:
+            await interaction.response.send_message(
+                f"⏳ Подождите {wait} сек. перед повторным нажатием.",
+                ephemeral=True,
+            )
+            return False
+        return True
+
     @discord.ui.button(
         label=config.AFK_BUTTON_LEAVE,
         style=discord.ButtonStyle.danger,
@@ -199,6 +216,8 @@ class AfkMenuView(discord.ui.View):
     )
     async def leave(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_guild(interaction):
+            return
+        if not await self._check_button_cooldown(interaction, "leave"):
             return
         modal = AfkSetModal(interaction.user, interaction.guild_id, interaction.guild)
         await interaction.response.send_modal(modal)
@@ -210,6 +229,8 @@ class AfkMenuView(discord.ui.View):
     )
     async def return_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_guild(interaction):
+            return
+        if not await self._check_button_cooldown(interaction, "return"):
             return
 
         from .models import format_duration, get_afk_user
@@ -238,6 +259,8 @@ class AfkMenuView(discord.ui.View):
     )
     async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_guild(interaction):
+            return
+        if not await self._check_button_cooldown(interaction, "refresh"):
             return
         embed = build_afk_embed(interaction.guild)
         await interaction.response.send_message(embed=embed, ephemeral=True)

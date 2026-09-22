@@ -23,6 +23,7 @@ class AfkCog(commands.Cog):
 
     @commands.command(name="afk")
     @commands.guild_only()
+    @commands.cooldown(1, config.AFK_COMMAND_COOLDOWN_SECONDS, commands.BucketType.user)
     async def afk_command(self, ctx: commands.Context):
         embed = discord.Embed(
             title=config.AFK_EMBED_TITLE,
@@ -33,11 +34,13 @@ class AfkCog(commands.Cog):
 
     @commands.command(name="afk_list")
     @commands.guild_only()
+    @commands.cooldown(1, config.AFK_LIST_COOLDOWN_SECONDS, commands.BucketType.user)
     async def afk_list_command(self, ctx: commands.Context):
         await ctx.send(embed=build_afk_embed(ctx.guild))
 
     @commands.command(name="afk_check")
     @commands.guild_only()
+    @commands.cooldown(3, config.AFK_LOOKUP_COOLDOWN_SECONDS, commands.BucketType.user)
     async def afk_check_command(self, ctx: commands.Context, member: discord.Member):
         row = get_afk_user(member.id, ctx.guild.id)
         if not row:
@@ -68,8 +71,9 @@ class AfkCog(commands.Cog):
 
     @commands.command(name="afk_stats")
     @commands.guild_only()
+    @commands.cooldown(3, config.AFK_LOOKUP_COOLDOWN_SECONDS, commands.BucketType.user)
     async def afk_stats_command(self, ctx: commands.Context, member: discord.Member):
-        stats = get_user_stats(member.id)
+        stats = get_user_stats(member.id, ctx.guild.id)
         if not stats:
             embed = discord.Embed(
                 title=member.display_name,
@@ -99,6 +103,7 @@ class AfkCog(commands.Cog):
 
     @commands.command(name=config.CMD_AFK_REMOVE)
     @commands.guild_only()
+    @commands.cooldown(3, config.AFK_LOOKUP_COOLDOWN_SECONDS, commands.BucketType.user)
     async def afk_remove_command(self, ctx: commands.Context, member: discord.Member):
         """Принудительно снять AFK с пользователя (только модераторы)."""
         if not is_staff(ctx.author):

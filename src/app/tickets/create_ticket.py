@@ -1,11 +1,12 @@
 import json
 import re
+import sqlite3
 from datetime import datetime
 
 import discord
 
 import config
-from database.tickets_db import save_ticket
+from database.tickets_db import get_open_ticket_for_user, save_ticket
 from utils.logcenter import LOG_KEY_TICKETS, send_to_log
 from utils.logger import logger
 from utils.resolve import get_category, get_role
@@ -46,11 +47,26 @@ class TicketModal(discord.ui.Modal):
 async def create_ticket(interaction, topic, ticket_type, inputs):
     guild = interaction.guild
     member = interaction.user
+    channel = None
 
     try:
         await interaction.response.send_message("Создаю заявку...", ephemeral=True)
     except discord.InteractionResponded:
         pass
+
+    if guild is None:
+        await interaction.edit_original_response(content=config.ERROR_TICKET_CREATE)
+        return
+
+    guild_id = getattr(guild, "id", None)
+    user_id = getattr(member, "id", None)
+    if isinstance(guild_id, int) and isinstance(user_id, int):
+        existing = get_open_ticket_for_user(guild_id, user_id)
+        if existing:
+            await interaction.edit_original_response(
+                content=config.TICKET_ALREADY_OPEN.format(channel=f"<#{existing['channel_id']}>")
+            )
+            return
 
     try:
         apply_role = get_role(guild, config.ROLE_APPLIED_ID, config.ROLE_APPLIED)
@@ -96,15 +112,24 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
             channel_name, category=category, overwrites=overwrites
         )
 
-        save_ticket(
-            channel.id,
-            member.id,
-            member.name,
-            topic,
-            ticket_type,
-            json.dumps(answers, ensure_ascii=False),
-            datetime.now().isoformat(),
-        )
+        try:
+            save_ticket(
+                channel.id,
+                member.id,
+                member.name,
+                topic,
+                ticket_type,
+                json.dumps(answers, ensure_ascii=False),
+                datetime.now().isoformat(),
+                guild_id=guild_id if isinstance(guild_id, int) else 0,
+            )
+        except sqlite3.IntegrityError:
+            await channel.delete(reason="Duplicate open ticket prevented")
+            channel = None
+            await interaction.edit_original_response(
+                content=config.TICKET_ALREADY_OPEN.format(channel="уже открыта")
+            )
+            return
 
         embed = discord.Embed(title=topic, color=discord.Color.gold(), timestamp=datetime.now())
         embed.add_field(name="От кого", value=member.mention, inline=False)
@@ -140,4 +165,11 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
 
     except Exception as e:
         logger.error(f"Ошибка создания заявки: {e}")
+        if channel is not None:
+            try:
+                await channel.delete(reason="Rollback failed ticket creation")
+            except Exception as cleanup_error:
+                logger.error(
+                    f"Не удалось удалить частично созданный тикет {channel.id}: {cleanup_error}"
+                )
         await interaction.edit_original_response(content=config.ERROR_TICKET_CREATE)

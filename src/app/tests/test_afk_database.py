@@ -199,6 +199,42 @@ class TestAfkDatabase(unittest.TestCase):
         removed = self.db.cleanup_cooldowns("2020-01-01T00:00:00")
         self.assertEqual(removed, 0)
 
+    def test_cooldown_is_guild_scoped(self):
+        self.db.set_cooldown(100, 200, guild_id=1)
+        self.assertFalse(self.db.check_cooldown(100, 200, 30, guild_id=1))
+        self.assertTrue(self.db.check_cooldown(100, 200, 30, guild_id=2))
+
+    def test_stats_are_guild_scoped(self):
+        self.db.update_stats_on_set(123, guild_id=1)
+        self.db.update_stats_on_set(123, guild_id=2)
+        self.db.update_stats_on_remove(123, 60, guild_id=1)
+
+        guild_one = self.db.get_user_stats(123, guild_id=1)
+        guild_two = self.db.get_user_stats(123, guild_id=2)
+
+        self.assertEqual(guild_one["total_afk_count"], 1)
+        self.assertEqual(guild_one["total_afk_seconds"], 60)
+        self.assertEqual(guild_two["total_afk_count"], 1)
+        self.assertEqual(guild_two["total_afk_seconds"], 0)
+
+    def test_delete_user_data_is_guild_scoped(self):
+        self.db.set_afk(123, 1, "r", "2024-01-01T00:00:00")
+        self.db.set_afk(123, 2, "r", "2024-01-01T00:00:00")
+        self.db.update_stats_on_set(123, guild_id=1)
+        self.db.update_stats_on_set(123, guild_id=2)
+        self.db.set_cooldown(999, 123, guild_id=1)
+        self.db.set_cooldown(999, 123, guild_id=2)
+
+        counts = self.db.delete_user_data(123, 1)
+
+        self.assertEqual(counts["afk_users"], 1)
+        self.assertIsNone(self.db.get_afk_user(123, 1))
+        self.assertIsNotNone(self.db.get_afk_user(123, 2))
+        self.assertIsNone(self.db.get_user_stats(123, guild_id=1))
+        self.assertIsNotNone(self.db.get_user_stats(123, guild_id=2))
+        self.assertTrue(self.db.check_cooldown(999, 123, 30, guild_id=1))
+        self.assertFalse(self.db.check_cooldown(999, 123, 30, guild_id=2))
+
 
 class TestGetExpiredAfk(unittest.TestCase):
     def setUp(self):
