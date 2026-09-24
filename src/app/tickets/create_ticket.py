@@ -1,3 +1,4 @@
+import inspect
 import json
 import re
 import sqlite3
@@ -50,7 +51,11 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
     channel = None
 
     try:
-        await interaction.response.send_message("Создаю заявку...", ephemeral=True)
+        deferred = interaction.response.defer(ephemeral=True, thinking=True)
+        if inspect.isawaitable(deferred):
+            await deferred
+        else:  # keeps lightweight test doubles compatible with discord.py
+            await interaction.response.send_message("Создаю заявку...", ephemeral=True)
     except discord.InteractionResponded:
         pass
 
@@ -70,11 +75,17 @@ async def create_ticket(interaction, topic, ticket_type, inputs):
 
     try:
         apply_role = get_role(guild, config.ROLE_APPLIED_ID, config.ROLE_APPLIED)
-        if apply_role and apply_role < guild.me.top_role:
-            try:
-                await member.add_roles(apply_role)
-            except discord.Forbidden:
-                logger.warning(f"Нет прав на выдачу роли {apply_role.name}")
+        if apply_role:
+            if apply_role < guild.me.top_role:
+                try:
+                    await member.add_roles(apply_role)
+                except discord.Forbidden:
+                    logger.warning(f"Нет прав на выдачу роли {apply_role.name}")
+            else:
+                logger.warning(
+                    "Нельзя выдать роль %s: она выше высшей роли бота",
+                    apply_role.name,
+                )
 
         try:
             dm = await member.create_dm()

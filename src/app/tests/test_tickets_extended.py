@@ -238,7 +238,7 @@ class TestVoiceSelectViewButtons(unittest.IsolatedAsyncioTestCase):
             with patch("tickets.call_voice.discord.utils.get", return_value=None):
                 await btn.callback(interaction)
 
-        ticket_channel.send.assert_called_once()
+        ticket_channel.send.assert_not_called()
         interaction.response.send_message.assert_called_once()
 
 

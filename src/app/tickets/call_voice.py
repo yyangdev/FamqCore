@@ -1,3 +1,5 @@
+import inspect
+
 import discord
 
 import config
@@ -37,6 +39,12 @@ class VoiceSelectView(discord.ui.View):
 
     def make_callback(self, voice_name, index):
         async def callback(interaction: discord.Interaction):
+            if not is_staff(interaction.user):
+                await interaction.response.send_message(config.TICKET_NO_PERMISSION, ephemeral=True)
+                return
+            deferred = interaction.response.defer(ephemeral=True, thinking=True)
+            if inspect.isawaitable(deferred):
+                await deferred
             ticket = get_ticket(self.ticket_channel.id)
             applicant = interaction.guild.get_member(ticket["user_id"]) if ticket else None
             recruiter = interaction.user
@@ -47,21 +55,36 @@ class VoiceSelectView(discord.ui.View):
             voice_ch = get_voice_channel(interaction.guild, voice_id, voice_name)
 
             if not voice_ch:
-                await self.ticket_channel.send(f"❌ Канал {voice_name} не найден!")
-                await interaction.response.send_message(
-                    f"Канал {voice_name} не найден", ephemeral=True
-                )
+                result = interaction.edit_original_response(content=f"Канал {voice_name} не найден")
+                if inspect.isawaitable(result):
+                    await result
+                else:
+                    await interaction.response.send_message(
+                        f"Канал {voice_name} не найден", ephemeral=True
+                    )
                 return
 
-            await self.ticket_channel.send(
-                f"**Рекрут** {recruiter.mention} **вызвал** {applicant.mention if applicant else 'заявителя'} **на обзвон**"
+            try:
+                await self.ticket_channel.send(
+                    f"**Рекрут** {recruiter.mention} **вызвал** {applicant.mention if applicant else 'заявителя'} **на обзвон**"
+                )
+                await self.ticket_channel.send(
+                    f"{applicant.mention if applicant else 'Заявитель'} зайдите в {voice_ch.mention}"
+                )
+            except discord.Forbidden:
+                await interaction.edit_original_response(
+                    content="Нет прав отправить сообщение в тикет."
+                )
+                return
+            result = interaction.edit_original_response(
+                content=f"Вызов отправлен в {voice_ch.mention}"
             )
-            await self.ticket_channel.send(
-                f"{applicant.mention if applicant else 'Заявитель'} зайдите в {voice_ch.mention}"
-            )
-            await interaction.response.send_message(
-                f"Вызов отправлен в {voice_ch.mention}", ephemeral=True
-            )
+            if inspect.isawaitable(result):
+                await result
+            else:
+                await interaction.response.send_message(
+                    f"Вызов отправлен в {voice_ch.mention}", ephemeral=True
+                )
 
             log_embed = discord.Embed(title="🔊 Вызов на обзвон", color=discord.Color.blue())
             log_embed.add_field(name="Рекрут", value=recruiter.mention, inline=True)

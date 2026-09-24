@@ -8,6 +8,8 @@
 логирование не должно ронять основную логику бота.
 """
 
+import asyncio
+
 import discord
 
 import config
@@ -22,6 +24,11 @@ LOG_KEY_STATS = config.LOG_KEY_STATS
 LOG_KEY_ERRORS = config.LOG_KEY_ERRORS
 
 MAX_AUTO_ARCHIVE = 10080  # неделя — максимум у Discord
+_locks: dict[tuple[int, str], asyncio.Lock] = {}
+
+
+def _lock_for(guild, key: str) -> asyncio.Lock:
+    return _locks.setdefault((guild.id, key), asyncio.Lock())
 
 
 def _private_overwrites(guild):
@@ -98,14 +105,21 @@ async def send_to_log(guild, key: str, content: str | None = None, embed=None, f
         return False
 
     try:
-        destination = await _resolve_thread(guild, key)
+        # Both channel and thread creation are guarded: two simultaneous
+        # interactions must not create duplicate log infrastructure.
+        async with _lock_for(guild, key):
+            try:
+                destination = await _resolve_thread(guild, key)
+            except Exception as e:
+                logger.warning(f"logcenter: ветка «{key}» недоступна ({e}), пробую сам канал")
+                try:
+                    destination = await _resolve_log_channel(guild)
+                except Exception as e2:
+                    logger.error(f"logcenter: лог-канал недоступен: {e2}")
+                    return False
     except Exception as e:
-        logger.warning(f"logcenter: ветка «{key}» недоступна ({e}), пробую сам канал")
-        try:
-            destination = await _resolve_log_channel(guild)
-        except Exception as e2:
-            logger.error(f"logcenter: лог-канал недоступен: {e2}")
-            return False
+        logger.error(f"logcenter: ошибка разрешения назначения: {e}")
+        return False
 
     try:
         await destination.send(content=content, embed=embed, files=files)

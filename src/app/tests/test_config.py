@@ -5,9 +5,11 @@ import config
 
 
 class TestConfig(unittest.TestCase):
-    def test_token_exists(self):
-        self.assertIsNotNone(config.TOKEN)
-        self.assertIsInstance(config.TOKEN, str)
+    def test_token_setting_is_defined(self):
+        # A unit test must not require a production secret in its environment.
+        self.assertTrue(hasattr(config, "TOKEN"))
+        if config.TOKEN is not None:
+            self.assertIsInstance(config.TOKEN, str)
 
     def test_db_path_is_string(self):
         self.assertIsInstance(config.DB_PATH, str)

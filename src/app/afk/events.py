@@ -30,7 +30,8 @@ def setup_afk_events(bot: commands.Bot):
         guild_id = message.guild.id
 
         # команды (!afk_check @user) не должны триггерить автоответ про AFK
-        if not message.content.startswith(config.CMD_PREFIX):
+        if not message.content.startswith(config.CMD_PREFIX) and not message.reference:
+            replies = []
             for entity in message.mentions:
                 row = get_afk_user(entity.id, guild_id)
                 if not row or not check_and_reply(message.author.id, entity.id, guild_id):
@@ -38,11 +39,22 @@ def setup_afk_events(bot: commands.Bot):
 
                 afk_since = datetime.fromisoformat(row["afk_since"])
                 duration = format_duration(int((datetime.now() - afk_since).total_seconds()))
-                reply = config.AFK_AUTO_REPLY.format(
-                    mention=entity.mention,
-                    reason=row.get("afk_reason") or "Отошёл",
-                    duration=duration,
+                replies.append(
+                    config.AFK_AUTO_REPLY.format(
+                        # Do not ping an AFK user a second time.
+                        mention=entity.display_name,
+                        reason=row.get("afk_reason") or "Отошёл",
+                        duration=duration,
+                    )
                 )
-                await message.channel.send(reply, delete_after=60)
+            if replies:
+                try:
+                    await message.channel.send(
+                        "\n\n".join(replies),
+                        delete_after=60,
+                        allowed_mentions=discord.AllowedMentions.none(),
+                    )
+                except discord.Forbidden:
+                    return
 
         await bot.process_commands(message)
